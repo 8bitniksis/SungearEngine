@@ -73,8 +73,6 @@ void SGCore::EntityBaseInfo::setParent(const ECS::entity_t& parent,
 
         if(inRegistry.allOf<RootEntityTag>(m_thisEntity)) return;
 
-        inRegistry.emplace<RootEntityTag>(m_thisEntity);
-
         parentBaseInfo->removeChild(m_thisEntity, inRegistry);
 
         return;

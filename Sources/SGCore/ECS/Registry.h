@@ -272,6 +272,21 @@ namespace SGCore::ECS
             return m_registry.template on_destroy<typename Type::reg_t>(id);
         }
 
+        [[nodiscard]] auto onConstruct(const entt::id_type id = entt::type_hash<entity_t>::value()) noexcept
+        {
+            return m_registry.template on_construct<entity_t>(id);
+        }
+
+        [[nodiscard]] auto onUpdate(const entt::id_type id = entt::type_hash<entity_t>::value()) noexcept
+        {
+            return m_registry.template on_update<entity_t>(id);
+        }
+
+        [[nodiscard]] auto onDestroy(const entt::id_type id = entt::type_hash<entity_t>::value()) noexcept
+        {
+            return m_registry.template on_destroy<entity_t>(id);
+        }
+
         template<typename Type, typename... Other, typename... Exclude>
         [[nodiscard]] entt::basic_view<entt::get_t<storage_for_type<const typename Type::reg_t>,
                 storage_for_type<const typename Other::reg_t>...>,

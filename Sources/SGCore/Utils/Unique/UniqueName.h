@@ -17,7 +17,7 @@ namespace SGCore
 {
     class UniqueNamesManager;
 
-    struct SGCORE_EXPORT UniqueName
+    struct SGCORE_EXPORT UniqueName final
     {
         sg_serde_as_friend()
 
@@ -32,7 +32,7 @@ namespace SGCore
 
         [[nodiscard]] std::string getRawName() const noexcept;
 
-        [[nodiscard]] size_t getUniqueID() const noexcept;
+        [[nodiscard]] std::int64_t getUniqueID() const noexcept;
 
         [[nodiscard]] std::string getName() const noexcept;
 
@@ -73,6 +73,8 @@ namespace SGCore
     {
         sg_serde_as_friend()
     public:
+
+        virtual ~UniqueNameWrapper() = default;
 
         [[nodiscard]] auto getRawName() const noexcept
         {

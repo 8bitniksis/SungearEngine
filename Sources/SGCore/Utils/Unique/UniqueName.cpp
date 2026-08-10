@@ -33,7 +33,7 @@ std::string SGCore::UniqueName::getRawName() const noexcept
     return m_rawName;
 }
 
-size_t SGCore::UniqueName::getUniqueID() const noexcept
+std::int64_t SGCore::UniqueName::getUniqueID() const noexcept
 {
     return m_uniqueID;
 }

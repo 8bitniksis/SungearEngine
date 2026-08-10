@@ -10,6 +10,7 @@
 #include "SGCore/Scene/EntityBaseInfo.h"
 #include "SGCore/Utils/Slot.h"
 #include "SGCore/Utils/Signal.h"
+#include "SGCore/Utils/Unique/UniqueNamesManager.h"
 
 namespace SGCore::ECS
 {
@@ -71,7 +72,7 @@ namespace SGCore::ECS
         [[nodiscard]] EntityT create()
         {
             auto entity = m_registry.create();
-            emplace<EntityBaseInfo>(entity, entity, *this);
+            emplace<EntityBaseInfo>(entity, entity, *this).attachToUniqueNamesManager(m_uniqueNamesManager);
 
             return entity;
         }
@@ -83,7 +84,7 @@ namespace SGCore::ECS
         [[nodiscard]] EntityT create(const EntityT& hint)
         {
             auto entity = m_registry.create(hint);
-            emplace<EntityBaseInfo>(entity, entity);
+            emplace<EntityBaseInfo>(entity, entity).attachToUniqueNamesManager(m_uniqueNamesManager);
 
             return entity;
         }
@@ -355,6 +356,8 @@ namespace SGCore::ECS
         Slot<void(const std::function<void(Registry&)>&)> onNewSingletonType = [this](const std::function<void(Registry&)>& subscribeFunc) {
             subscribeToSingletonEvents(subscribeFunc);
         };
+
+        Ref<UniqueNamesManager> m_uniqueNamesManager = MakeRef<UniqueNamesManager>();
 
         template<typename SingletonT>
         void singletonConstructObserver(entt_reg_t& enttRegistry, EntityT entity) noexcept

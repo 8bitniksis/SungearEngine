@@ -5,7 +5,6 @@
 
 #include "ISystem.h"
 #include "SGCore/Utils/Utils.h"
-#include "SGCore/Utils/Unique/UniqueNamesManager.h"
 #include "SGCore/Utils/Signal.h"
 #include "SGCore/Memory/Assets/IAsset.h"
 #include "SGCore/ECS/Registry.h"
@@ -97,11 +96,6 @@ namespace SGCore
         void addSystem(const Ref<ISystem>& system) noexcept;
         const std::vector<Ref<ISystem>>& getAllSystems() const noexcept;
 
-        auto getUniqueNamesManager() const noexcept
-        {
-            return m_uniqueNamesManager;
-        }
-
         // size_t createBaseEntity() noexcept;
 
         auto getECSRegistry() const noexcept
@@ -165,8 +159,6 @@ namespace SGCore
         double m_fixedUpdate_executionTime = 0.0;
         
         Ref<ECS::registry_t> m_ecsRegistry = MakeRef<ECS::registry_t>();
-
-        Ref<UniqueNamesManager> m_uniqueNamesManager = MakeRef<UniqueNamesManager>();
 
         systems_container_t m_systems;
 

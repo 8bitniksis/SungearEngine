@@ -20,6 +20,8 @@ namespace SGCore
     requires(std::is_signed_v<ScalarT>)
     struct AABB : ECS::Component<AABB<ScalarT>, const AABB<ScalarT>>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::AABB<ScalarT>);
+
         static_assert(std::is_scalar_v<ScalarT> && "ScalarT must be scalar.");
         
         using scalar_t = ScalarT;

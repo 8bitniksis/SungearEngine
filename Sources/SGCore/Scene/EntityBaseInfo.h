@@ -15,10 +15,10 @@
 
 namespace SGCore
 {
-    // sizeof
     struct SGCORE_EXPORT EntityBaseInfo final : UniqueNameWrapper, ECS::Component<EntityBaseInfo, const EntityBaseInfo>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::EntityBaseInfo);
 
         explicit EntityBaseInfo(ECS::entity_t thisEntity, ECS::registry_t& inRegistry) noexcept;
         EntityBaseInfo(const EntityBaseInfo&) = default;

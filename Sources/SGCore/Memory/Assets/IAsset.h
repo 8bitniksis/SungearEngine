@@ -24,7 +24,7 @@
  */
 // =======================================================================================================
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -46,8 +46,8 @@ namespace SGCore
     class SGCORE_EXPORT IAsset : public std::enable_shared_from_this<IAsset>
     {
     public:
-        sg_serde_as_friend()
-        sg_implement_type_id_base(SGCore::IAsset)
+        SG_SERDE_AS_FRIEND()
+        SG_IMPLEMENT_TYPE_ID_BASE(SGCore::IAsset)
 
         friend class AssetManager;
 

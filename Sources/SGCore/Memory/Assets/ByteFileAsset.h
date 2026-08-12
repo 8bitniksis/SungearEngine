@@ -7,14 +7,14 @@
 #include "IAsset.h"
 #include "SGCore/Memory/AssetsPackage.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
     struct SGCORE_EXPORT ByteFileAsset : public IAsset
     {
-        sg_implement_type_id(SGCore::ByteFileAsset)
-        sg_serde_as_friend()
+        SG_IMPLEMENT_TYPE_ID(SGCore::ByteFileAsset)
+        SG_SERDE_AS_FRIEND()
 
         ~ByteFileAsset() override;
         

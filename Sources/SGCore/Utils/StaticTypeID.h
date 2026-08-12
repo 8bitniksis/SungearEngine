@@ -15,27 +15,34 @@
 #include "SGCore/Logger/Logger.h"
 #endif
 
-/// Pass current class type as first argument. PLEASE, QUALIFY YOUR TYPE BY NAMESPACE IN WHICH THE TYPE IS LOCATED.\n
+/// Pass current class type (variadic — commas in templates are OK). PLEASE, QUALIFY YOUR TYPE BY NAMESPACE.\n
 /// Use this macro in derived types to implement function \p getTypeID() that overrides virtual function in base type\n
 /// \p getTypeID() is needed to get real static type ID of object.\n
 /// Implementation of this macro must has public access.
-#define sg_implement_type_id(current_class)                          \
-static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<current_class>::setID(SGCore::constexprHash(#current_class)); return typeID; }   \
-std::uint64_t getTypeID() const noexcept final { return current_class::getTypeIDStatic(); }
+#define SG_IMPLEMENT_TYPE_ID(...)                          \
+static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<__VA_ARGS__>::setID(SGCore::constexprHash(#__VA_ARGS__)); return typeID; }   \
+SG_OVERRIDE_TYPE_ID(__VA_ARGS__)
 
-/// Pass current class type as first argument. PLEASE, QUALIFY YOUR TYPE BY NAMESPACE IN WHICH THE TYPE IS LOCATED. \n
+/// Pass current class type (variadic — commas in templates are OK). PLEASE, QUALIFY YOUR TYPE BY NAMESPACE. \n
 /// Use this macro in base types to implement virtual function \p getTypeID() .\n
 /// \p getTypeID() is needed to get real static type ID of object.\n
 /// Implementation of this macro must has public access.
-#define sg_implement_type_id_base(current_class)                          \
-static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<current_class>::setID(SGCore::constexprHash(#current_class)); return typeID; }        \
-virtual std::uint64_t getTypeID() const noexcept { return current_class::getTypeIDStatic(); }
+#define SG_IMPLEMENT_TYPE_ID_BASE(...)                          \
+static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<__VA_ARGS__>::setID(SGCore::constexprHash(#__VA_ARGS__)); return typeID; }        \
+virtual std::uint64_t getTypeID() const noexcept { return __VA_ARGS__::getTypeIDStatic(); }
 
-/// Pass current class type as first argument. PLEASE, QUALIFY YOUR TYPE BY NAMESPACE IN WHICH THE TYPE IS LOCATED.\n
+/// Pass current class type (variadic — commas in templates are OK). PLEASE, QUALIFY YOUR TYPE BY NAMESPACE.\n
 /// Creates only static function to get type ID without virtual function to get type ID of object.
 /// Implementation of this macro must has public access.
-#define sg_implement_nonvirtual_type_id(current_class)                    \
-static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<current_class>::setID(SGCore::constexprHash(#current_class)); return typeID; }
+#define SG_IMPLEMENT_STATIC_TYPE_ID(...)                    \
+static std::uint64_t getTypeIDStatic() { static std::uint64_t typeID = SGCore::StaticTypeID<__VA_ARGS__>::setID(SGCore::constexprHash(#__VA_ARGS__)); return typeID; }
+
+/// Pass current class type (variadic — commas in templates are OK). PLEASE, QUALIFY YOUR TYPE BY NAMESPACE.\n
+/// Overrides only base virtual function to get type ID.
+/// Implementation of this macro must has public access.
+#define SG_OVERRIDE_TYPE_ID(...)                    \
+std::uint64_t getTypeID() const noexcept final { return __VA_ARGS__::getTypeIDStatic(); }
+
 
 namespace SGCore
 {

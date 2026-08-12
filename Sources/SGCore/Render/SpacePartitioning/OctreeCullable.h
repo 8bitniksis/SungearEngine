@@ -15,6 +15,8 @@ namespace SGCore
     
     struct SGCORE_EXPORT OctreeCullable : ECS::Component<OctreeCullable, const OctreeCullable>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::OctreeCullable);
+
         std::unordered_map<ECS::entity_t, Weak<OctreeNode>> m_parentNodes;
         
     private:

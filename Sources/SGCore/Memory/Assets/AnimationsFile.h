@@ -14,9 +14,9 @@ namespace SGCore
 {
     struct SGCORE_EXPORT AnimationsFile : public IAsset, public IAssetsRefsResolver<AnimationsFile>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::AnimationsFile)
+        SG_IMPLEMENT_TYPE_ID(SGCore::AnimationsFile)
 
         sg_assets_refs_resolver_as_friend
 

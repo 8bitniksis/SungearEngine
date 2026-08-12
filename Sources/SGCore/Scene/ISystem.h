@@ -15,13 +15,13 @@ namespace SGCore
     class Scene;
 
     /**
-     * You must implement \p sg_implement_type_id macro in your custom system type.
+     * You must implement \p SG_IMPLEMENT_TYPE_ID macro in your custom system type.
      */
     class SGCORE_EXPORT ISystem
     {
         friend class Scene;
     public:
-        sg_implement_type_id_base(SGCore::ISystem)
+        SG_IMPLEMENT_TYPE_ID_BASE(SGCore::ISystem)
 
         virtual ~ISystem() = default;
 

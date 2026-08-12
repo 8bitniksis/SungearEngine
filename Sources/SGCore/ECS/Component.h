@@ -9,8 +9,9 @@
 
 #include "SGCore/Main/CoreGlobals.h"
 #include "SGCore/Serde/Defines.h"
+#include "SGCore/Utils/StaticTypeID.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -22,6 +23,8 @@ namespace SGCore::ECS
     // used to workaround linker errors of symbols exporting
     struct SGCORE_EXPORT ComponentBase
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::ECS::ComponentBase);
+
         virtual ~ComponentBase() = default;
 
         ComponentBase() noexcept = default;
@@ -30,7 +33,7 @@ namespace SGCore::ECS
 
         ComponentBase(ComponentBase&& other) noexcept = default;
 
-        virtual entity_t getThisEntity() const noexcept;
+        entity_t getThisEntity() const noexcept;
 
         virtual void setActive(bool active) noexcept;
 
@@ -55,7 +58,9 @@ namespace SGCore::ECS
         template<typename>
         friend struct Registry;
 
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
+
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::ECS::Component<ComponentRegT, ConstComponentRegT, ComponentAccessor>);
 
         /**
          * Type of component is registry.

@@ -24,7 +24,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EntityRef")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EntityRef")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EntityRef, TFormatType>& valueView,
@@ -43,7 +43,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::ECS::entity_t")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::ECS::entity_t")
         static inline constexpr bool is_pointer_type = false;
 
         // behaviour as just enum value
@@ -66,7 +66,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::ECS::registry_t")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::ECS::registry_t")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const ECS::registry_t, TFormatType>& valueView, const Scene& serializableScene) noexcept;
@@ -81,7 +81,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Scene::systems_container_t")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Scene::systems_container_t")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Scene::systems_container_t, TFormatType>& valueView, const Scene& serializableScene) noexcept;
@@ -96,7 +96,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::SceneMetaInfo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::SceneMetaInfo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const SceneMetaInfo, TFormatType>& valueView) noexcept;
@@ -111,9 +111,9 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        // sg_validate_serdespec_supported_formats(TFormatType, FormatType::JSON, FormatType::BSON)
+        // SG_VALIDATE_SERDESPEC_SUPPORTED_FORMATS(TFormatType, FormatType::JSON, FormatType::BSON)
 
-        sg_serde_define_type_name("SGCore::Scene")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Scene")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Scene, TFormatType>& valueView) noexcept;
@@ -128,7 +128,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Node")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Node")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Node, TFormatType>& valueView, AssetsPackage& assetsPackage) noexcept;

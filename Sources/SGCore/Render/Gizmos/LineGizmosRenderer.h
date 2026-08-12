@@ -10,7 +10,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT LineGizmosRenderer : public ISystem
     {
-        sg_implement_type_id(SGCore::LineGizmosRenderer)
+        SG_IMPLEMENT_TYPE_ID(SGCore::LineGizmosRenderer)
 
         void fixedUpdate(double dt, double fixedDt) final;
     };

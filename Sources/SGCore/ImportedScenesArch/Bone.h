@@ -28,7 +28,7 @@ namespace SGCore
     // data of copy of bone for each mesh
     struct SGCORE_EXPORT MeshBoneData
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         sg_assets_refs_resolver_as_friend
 
@@ -46,9 +46,9 @@ namespace SGCore
     // BONE MUST BE ATTACHED ONLY TO ONE SKELETON. DO NOT SHARE ONE INSTANCE OF BONE BETWEEN MULTIPLE SKELETONS!!!!
     struct SGCORE_EXPORT Bone : public IAsset, public IAssetsRefsResolver<Bone>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::Bone)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Bone)
 
         sg_assets_refs_resolver_as_friend
 

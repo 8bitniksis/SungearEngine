@@ -14,9 +14,9 @@ namespace SGCore::Lua
 {
     struct Script : IAsset, public IAssetsRefsResolver<Script>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::Lua::Script)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Lua::Script)
 
         sg_assets_refs_resolver_as_friend
 

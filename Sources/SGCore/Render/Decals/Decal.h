@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT Decal : ECS::Component<Decal, const Decal>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Decal);
+
     private:
         bool m_dummy = false;
     };

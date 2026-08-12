@@ -20,9 +20,9 @@ namespace SGCore
     class SGCORE_EXPORT IMaterial : public IAsset, public IAssetsRefsResolver<IMaterial>
     {
     public:
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::IMaterial)
+        SG_IMPLEMENT_TYPE_ID(SGCore::IMaterial)
 
         sg_assets_refs_resolver_as_friend
 

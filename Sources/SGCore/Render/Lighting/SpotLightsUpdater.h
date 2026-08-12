@@ -13,7 +13,7 @@ namespace SGCore
     
     struct SGCORE_EXPORT SpotLightsUpdater : public ISystem
     {
-        sg_implement_type_id(SGCore::SpotLightsUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::SpotLightsUpdater)
 
         SpotLightsUpdater() noexcept;
         

@@ -10,7 +10,7 @@ namespace SGCore
 {
     struct BatchesUpdater : ISystem
     {
-        sg_implement_type_id(SGCore::BatchesUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::BatchesUpdater)
 
         void update(double dt, double fixedDt) noexcept final;
     };

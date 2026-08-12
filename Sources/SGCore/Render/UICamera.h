@@ -4,10 +4,15 @@
 
 #pragma once
 
+#include "sgcore_export.h"
+
 namespace SGCore
 {
-    class SGCORE_EXPORT UICamera : public ECS::Component<UICamera, const UICamera>
+    struct SGCORE_EXPORT UICamera final : ECS::Component<UICamera, const UICamera>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::UICamera);
+
+    private:
         volatile int m_dummy = 0;
     };
 }

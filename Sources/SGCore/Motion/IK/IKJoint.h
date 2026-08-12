@@ -17,6 +17,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT IKJoint : ECS::Component<IKJoint, const IKJoint>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::IKJoint);
+
         bool m_useRotationConstraints = false;
         glm::vec3 m_constraintMinRotation { -180.0f, -180.0f, -180.0f};
         glm::vec3 m_constraintMaxRotation { 180.0f, 180.0f, 180.0f };

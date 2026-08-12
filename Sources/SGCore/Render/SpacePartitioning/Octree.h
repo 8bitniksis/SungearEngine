@@ -34,6 +34,8 @@ namespace SGCore
     
     struct SGCORE_EXPORT Octree : ECS::Component<Octree, const Octree>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Octree);
+
         glm::vec3 m_nodeMinSize { 10 };
         
         [[nodiscard]] bool subdivide(Ref<OctreeNode> node) const noexcept;

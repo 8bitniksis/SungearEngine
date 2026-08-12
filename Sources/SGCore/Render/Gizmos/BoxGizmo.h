@@ -8,6 +8,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT BoxGizmo : ECS::Component<BoxGizmo, const BoxGizmo>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::BoxGizmo);
+
         GizmoBase m_base;
 
         glm::vec3 m_size { 5.0, 5.0, 5.0 };

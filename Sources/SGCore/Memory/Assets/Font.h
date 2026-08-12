@@ -12,7 +12,7 @@ namespace SGCore::UI
 {
     struct SGCORE_EXPORT Font : public IAsset
     {
-        sg_implement_type_id(SGCore::UI::Font)
+        SG_IMPLEMENT_TYPE_ID(SGCore::UI::Font)
 
         ~Font() noexcept override;
 

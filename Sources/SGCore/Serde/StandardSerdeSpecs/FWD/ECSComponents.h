@@ -9,6 +9,11 @@
 
 namespace SGCore
 {
+    namespace ECS
+    {
+        struct ComponentBase;
+    }
+
     struct Mesh;
     struct Atmosphere;
     struct EntityBaseInfo;
@@ -20,7 +25,7 @@ namespace SGCore
     struct MotionPlanner;
     struct OpaqueEntityTag;
     struct TransparentEntityTag;
-    class UICamera;
+    struct UICamera;
     struct Camera3D;
     struct Controllable3D;
     struct SpotLight;
@@ -50,11 +55,39 @@ namespace SGCore::Serde
     // ======================================================== EntityBaseInfo FWD
 
     template<FormatType TFormatType>
+    struct SerdeSpec<ECS::ComponentBase, TFormatType> :
+            BaseTypes<>,
+            DerivedTypes<
+                Mesh, Atmosphere,
+                EntityBaseInfo, Transform,
+                RenderingBase, Rigidbody3D,
+                MotionPlanner, OpaqueEntityTag,
+                TransparentEntityTag, UICamera,
+                Controllable3D, SpotLight,
+                LineGizmo, BoxGizmo,
+                SphereGizmo, AudioSource,
+                Pickable, EnableBatchingPass,
+                EnableDecalPass, EnableInstancingPass,
+                EnableMeshPass, EnableTerrainPass,
+                EnableVolumetricPass, MainCameraTag
+            >
+    {
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::ECS::ComponentBase")
+        static inline constexpr bool is_pointer_type = false;
+
+        static void serialize(SerializableValueView<const ECS::ComponentBase, TFormatType>& valueView) noexcept {}
+
+        static void deserialize(DeserializableValueView<ECS::ComponentBase, TFormatType>& valueView) noexcept {}
+    };
+
+    // ======================================================== EntityBaseInfo FWD
+
+    template<FormatType TFormatType>
     struct SerdeSpec<EntityBaseInfo, TFormatType> :
-            BaseTypes<UniqueNameWrapper>,
+            BaseTypes<ECS::ComponentBase, UniqueNameWrapper>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EntityBaseInfo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EntityBaseInfo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EntityBaseInfo, TFormatType>& valueView) noexcept;
@@ -69,7 +102,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::TransformBase")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::TransformBase")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const TransformBase, TFormatType>& valueView) noexcept;
@@ -81,10 +114,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Transform, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Transform")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Transform")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Transform, TFormatType>& valueView) noexcept;
@@ -96,10 +129,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Pickable, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Pickable")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Pickable")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Pickable, TFormatType>& valueView,
@@ -115,10 +148,10 @@ namespace SGCore::Serde
 
     template<typename ScalarT, FormatType TFormatType>
     struct SerdeSpec<AABB<ScalarT>, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::AABB")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::AABB")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const AABB<ScalarT>, TFormatType>& valueView) noexcept;
@@ -130,10 +163,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<RenderingBase, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::RenderingBase")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::RenderingBase")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const RenderingBase, TFormatType>& valueView) noexcept;
@@ -145,10 +178,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<AudioSource, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::AudioSource")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::AudioSource")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const AudioSource, TFormatType>& valueView) noexcept;
@@ -160,10 +193,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Atmosphere, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Atmosphere")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Atmosphere")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Atmosphere, TFormatType>& valueView) noexcept;
@@ -175,10 +208,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<SphereGizmo, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::SphereGizmo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::SphereGizmo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const SphereGizmo, TFormatType>& valueView) noexcept;
@@ -190,10 +223,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<BoxGizmo, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::BoxGizmo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::BoxGizmo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const BoxGizmo, TFormatType>& valueView) noexcept;
@@ -208,7 +241,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::GizmoBase")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::GizmoBase")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const GizmoBase, TFormatType>& valueView) noexcept;
@@ -220,10 +253,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<LineGizmo, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::LineGizmo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::LineGizmo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const LineGizmo, TFormatType>& valueView) noexcept;
@@ -238,7 +271,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::MeshBase")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::MeshBase")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const MeshBase, TFormatType>& valueView) noexcept;
@@ -250,10 +283,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Mesh, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Mesh")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Mesh")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Mesh, TFormatType>& valueView) noexcept;
@@ -268,7 +301,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::LightBase")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::LightBase")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const LightBase, TFormatType>& valueView) noexcept;
@@ -280,10 +313,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<SpotLight, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::SpotLight")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::SpotLight")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const SpotLight, TFormatType>& valueView) noexcept;
@@ -295,10 +328,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Controllable3D, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Controllable3D")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Controllable3D")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Controllable3D, TFormatType>& valueView) noexcept;
@@ -310,10 +343,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Camera3D, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Camera3D")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Camera3D")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Camera3D, TFormatType>& valueView) noexcept;
@@ -325,10 +358,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<UICamera, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::UICamera")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::UICamera")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const UICamera, TFormatType>& valueView) noexcept;
@@ -340,10 +373,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<TransparentEntityTag, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::TransparentEntityTag")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::TransparentEntityTag")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const TransparentEntityTag, TFormatType>& valueView) noexcept;
@@ -355,10 +388,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<OpaqueEntityTag, TFormatType> :
-           BaseTypes<>,
+           BaseTypes<ECS::ComponentBase>,
            DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::OpaqueEntityTag")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::OpaqueEntityTag")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const OpaqueEntityTag, TFormatType>& valueView) noexcept;
@@ -370,10 +403,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<MotionPlanner, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::MotionPlanner")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::MotionPlanner")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const MotionPlanner, TFormatType>& valueView) noexcept;
@@ -385,10 +418,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<Rigidbody3D, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Rigidbody3D")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Rigidbody3D")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Rigidbody3D, TFormatType>& valueView) noexcept;
@@ -400,10 +433,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<IKRootJoint, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::IKRootJoint")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::IKRootJoint")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const IKRootJoint, TFormatType>& valueView) noexcept;
@@ -415,10 +448,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<IKJoint, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::IKJoint")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::IKJoint")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const IKJoint, TFormatType>& valueView) noexcept;
@@ -430,10 +463,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableBatchingPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableBatchingPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableBatchingPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableBatchingPass, TFormatType>& valueView) noexcept;
@@ -445,10 +478,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableDecalPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableDecalPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableDecalPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableDecalPass, TFormatType>& valueView) noexcept;
@@ -460,10 +493,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableInstancingPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableInstancingPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableInstancingPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableInstancingPass, TFormatType>& valueView) noexcept;
@@ -475,10 +508,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableMeshPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableMeshPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableMeshPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableMeshPass, TFormatType>& valueView) noexcept;
@@ -490,10 +523,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableTerrainPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableTerrainPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableTerrainPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableTerrainPass, TFormatType>& valueView) noexcept;
@@ -505,10 +538,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<EnableVolumetricPass, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::EnableVolumetricPass")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::EnableVolumetricPass")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const EnableVolumetricPass, TFormatType>& valueView) noexcept;
@@ -520,10 +553,10 @@ namespace SGCore::Serde
 
     template<FormatType TFormatType>
     struct SerdeSpec<MainCameraTag, TFormatType> :
-            BaseTypes<>,
+            BaseTypes<ECS::ComponentBase>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::MainCameraTag")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::MainCameraTag")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const MainCameraTag, TFormatType>& valueView) noexcept;

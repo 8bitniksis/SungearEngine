@@ -15,7 +15,7 @@ namespace SGCore
 {
     struct FrameAnimationNode : IAnimationNode
     {
-        sg_implement_type_id(SGCore::FrameAnimationNode)
+        SG_IMPLEMENT_TYPE_ID(SGCore::FrameAnimationNode)
 
         /// Texture slot to animate.
         SGTextureSlot m_textureSlot = SGTextureSlot::SGTT_DIFFUSE;

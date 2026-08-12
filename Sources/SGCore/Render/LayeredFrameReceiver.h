@@ -103,6 +103,8 @@ namespace SGCore
         friend struct Controllables3DUpdater;
 
     public:
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::LayeredFrameReceiver);
+
         LayeredFrameReceiver();
 
         // CONTAINS ONLY COLOR0 WITH VALUES OF LAYERS AND COLOR1 WITH COLORS OF LAYERS

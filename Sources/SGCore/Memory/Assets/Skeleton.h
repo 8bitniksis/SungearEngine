@@ -13,9 +13,9 @@ namespace SGCore
 
     struct SGCORE_EXPORT Skeleton : IAsset, IAssetsRefsResolver<Skeleton>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::Skeleton)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Skeleton)
 
         sg_assets_refs_resolver_as_friend
 

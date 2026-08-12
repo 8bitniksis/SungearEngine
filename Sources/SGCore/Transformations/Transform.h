@@ -17,6 +17,8 @@ namespace SGCore
      */
     struct SGCORE_EXPORT Transform : ECS::Component<Transform, const Transform>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Transform);
+
         friend class Node;
 
         TransformBase m_worldTransform;

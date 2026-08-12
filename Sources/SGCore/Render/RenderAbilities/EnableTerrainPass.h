@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT EnableTerrainPass : ECS::Component<EnableTerrainPass, const EnableTerrainPass>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::EnableTerrainPass);
+
     private:
         bool m_dummy = false;
     };

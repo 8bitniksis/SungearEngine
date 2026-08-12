@@ -19,7 +19,7 @@ namespace SGCore
      */
     struct SGCORE_EXPORT MotionPlannersResolver : ISystem
     {
-        sg_implement_type_id(SGCore::MotionPlannersResolver)
+        SG_IMPLEMENT_TYPE_ID(SGCore::MotionPlannersResolver)
 
         void fixedUpdate(double dt, double fixedDt) final;
 

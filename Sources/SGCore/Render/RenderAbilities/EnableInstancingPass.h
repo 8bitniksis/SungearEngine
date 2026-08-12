@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT EnableInstancingPass : ECS::Component<EnableInstancingPass, const EnableInstancingPass>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::EnableInstancingPass);
+
     private:
         bool m_dummy = false;
     };

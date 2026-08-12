@@ -11,7 +11,7 @@ namespace SGCore::UI
 {
     struct SGCORE_EXPORT UILayoutCalculator : ISystem
     {
-        sg_implement_type_id(SGCore::UI::UILayoutCalculator)
+        SG_IMPLEMENT_TYPE_ID(SGCore::UI::UILayoutCalculator)
 
         void fixedUpdate(double dt, double fixedDt) final;
 

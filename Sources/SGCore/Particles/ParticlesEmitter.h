@@ -16,6 +16,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT ParticlesEmitter : ECS::Component<ParticlesEmitter, const ParticlesEmitter>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::ParticlesEmitter);
+
         struct ParticleCreateResult
         {
             ECS::entity_t m_particleEntity = entt::null;

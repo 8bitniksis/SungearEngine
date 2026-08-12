@@ -11,9 +11,9 @@ namespace SGCore
 {
     struct SGCORE_EXPORT TextFileAsset : public IAsset
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::TextFileAsset)
+        SG_IMPLEMENT_TYPE_ID(SGCore::TextFileAsset)
 
         [[nodiscard]] std::string getData() const noexcept;
     

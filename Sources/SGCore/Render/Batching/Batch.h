@@ -26,6 +26,8 @@ namespace SGCore
     // todo: add aabb for batch. add camera frame receiver target layer
     struct SGCORE_EXPORT Batch : ECS::Component<Batch, const Batch>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Batch);
+
         MeshRenderState m_batchRenderState;
         BatchInstanceMaterial m_defaultMaterial { };
 

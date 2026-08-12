@@ -15,6 +15,8 @@ namespace SGCore
 
     struct VehicleWheel final : ECS::Component<VehicleWheel, const VehicleWheel>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::VehicleWheel);
+
         struct CreationParams
         {
             glm::vec3 m_direction { 0, -1, 0 };
@@ -24,7 +26,7 @@ namespace SGCore
             bool m_isFront {};
         };
 
-        ~VehicleWheel() noexcept override;
+        ~VehicleWheel() noexcept;
 
         btWheelInfo* m_wheelInfo {};
         WheeledVehicle* m_parentVehicle {};

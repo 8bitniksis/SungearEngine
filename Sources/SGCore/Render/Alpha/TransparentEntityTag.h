@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct TransparentEntityTag : public ECS::Component<TransparentEntityTag, const TransparentEntityTag>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::TransparentEntityTag);
+
     private:
         bool m_dummy = false;
     };

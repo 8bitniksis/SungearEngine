@@ -18,9 +18,9 @@ namespace SGCore
     class SGCORE_EXPORT ModelAsset : public IAsset, public IAssetsRefsResolver<ModelAsset>
     {
     public:
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::ModelAsset)
+        SG_IMPLEMENT_TYPE_ID(SGCore::ModelAsset)
 
         sg_assets_refs_resolver_as_friend
 

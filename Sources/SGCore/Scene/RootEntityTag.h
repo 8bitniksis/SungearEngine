@@ -10,6 +10,6 @@ namespace SGCore
 {
     struct SGCORE_EXPORT RootEntityTag : ECS::Component<RootEntityTag, const RootEntityTag>
     {
-
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::RootEntityTag);
     };
 }

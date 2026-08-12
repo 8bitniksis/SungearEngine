@@ -17,9 +17,11 @@ namespace SGCore::Navigation
 {
     struct SGCORE_EXPORT NavMesh : ECS::Component<NavMesh, const NavMesh>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Navigation::NavMesh);
+
         NavMeshConfig m_config{};
 
-        ~NavMesh() noexcept override;
+        ~NavMesh() noexcept;
 
         void build(const std::vector<Primitives::Triangle<>>& geometry) noexcept;
 

@@ -16,6 +16,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT RenderingBase : ECS::Component<RenderingBase, const RenderingBase>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::RenderingBase);
+
         float m_fov = 75.0f;
         float m_aspect = 16.0f / 9.0f;
         float m_zNear = 0.1;

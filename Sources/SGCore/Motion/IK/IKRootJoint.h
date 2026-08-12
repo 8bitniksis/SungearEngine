@@ -18,6 +18,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT IKRootJoint : ECS::Component<IKRootJoint, const IKRootJoint>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::IKRootJoint);
+
         void buildChains(const ECS::registry_t& registry) noexcept;
 
         [[nodiscard]] const std::vector<std::vector<IKChainNode>>& getCachedChains() const noexcept;

@@ -12,7 +12,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT SVGImage : public IAsset, public IAssetsRefsResolver<SVGImage>
     {
-        sg_implement_type_id(SGCore::SVGImage)
+        SG_IMPLEMENT_TYPE_ID(SGCore::SVGImage)
 
         sg_assets_refs_resolver_as_friend
 

@@ -13,6 +13,8 @@ namespace SGCore::UI
 {
     struct SGCORE_EXPORT UIComponent : ECS::Component<UIComponent, const UIComponent>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::UI::UIComponent);
+
         EntityRef m_attachedToCamera;
 
         AssetRef<UIDocument> m_document;

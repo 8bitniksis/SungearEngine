@@ -10,7 +10,7 @@ namespace SGCore::Navigation
 {
     struct SGCORE_EXPORT NavMeshDebugDraw final : SGCore::ISystem
     {
-        sg_implement_type_id(SGCore::Navigation::NavMeshDebugDraw)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Navigation::NavMeshDebugDraw)
 
         void update(double dt, double fixedDt) override;
     };

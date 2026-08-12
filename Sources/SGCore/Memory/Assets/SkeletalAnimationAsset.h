@@ -33,7 +33,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT SkeletalBoneAnimation
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         friend struct AnimationsFile;
         friend struct SkeletalAnimationAsset;
@@ -92,9 +92,9 @@ namespace SGCore
 
     struct SkeletalAnimationAsset : public IAsset
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::SkeletalAnimationAsset)
+        SG_IMPLEMENT_TYPE_ID(SGCore::SkeletalAnimationAsset)
 
         sg_assets_refs_resolver_as_friend
 

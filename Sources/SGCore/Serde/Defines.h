@@ -6,14 +6,14 @@
 
 #include "SGCore/Utils/Macroses.h"
 
-#define sg_serde_define_type_name(n)            \
+#define SG_SERDE_DEFINE_TYPE_NAME(n)            \
 static const std::string& type_name() noexcept  \
 {                                               \
     static const std::string name = n;          \
     return name;                                \
 }
 
-#define sg_serde_as_friend()                                    \
+#define SG_SERDE_AS_FRIEND()                                    \
 template<typename T, SGCore::Serde::FormatType TFormatType>     \
 friend struct SGCore::Serde::SerdeSpec;                         \
                                                                 \
@@ -25,7 +25,7 @@ template<SGCore::Serde::FormatType TFormatType>                 \
 friend struct SGCore::Serde::SerializableValueContainer;
 
 
-#define sg_predeclare_serde()                           \
+#define SG_PREDECLARE_SERDE()                           \
 namespace SGCore::Serde                                 \
 {                                                       \
     enum class FormatType;                              \
@@ -50,7 +50,7 @@ namespace SGCore::Serde                                 \
     struct DeserializableValueView;                     \
 }
 
-#define sg_validate_serdespec_supported_formats(CurrentFormat, ...) static_assert(SGCore::contains_obj<CurrentFormat, __VA_ARGS__>::value, "This TFormatType is not supported in current SerdeSpec.");
+#define SG_VALIDATE_SERDESPEC_SUPPORTED_FORMATS(CurrentFormat, ...) static_assert(SGCore::contains_obj<CurrentFormat, __VA_ARGS__>::value, "This TFormatType is not supported in current SerdeSpec.");
 
 #define SG_SERDE_DECLARE_EXTERNAL_CONNECTION(Base, Derived, SerdeName) \
 template<SGCore::Serde::FormatType TFormatType, typename... SharedDataT> \

@@ -10,7 +10,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT SphereGizmosUpdater : public ISystem
     {
-        sg_implement_type_id(SGCore::SphereGizmosUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::SphereGizmosUpdater)
 
         void fixedUpdate(double dt, double fixedDt) final;
     };

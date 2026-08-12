@@ -18,7 +18,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT IAnimationNode : Playable
     {
-        sg_implement_type_id_base(SGCore::IAnimationNode)
+        SG_IMPLEMENT_TYPE_ID_BASE(SGCore::IAnimationNode)
 
         bool m_isActive = true;
         bool m_isLooping = false;

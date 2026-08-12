@@ -17,7 +17,7 @@ namespace SGCore
     class SGCORE_EXPORT OctreesSolver : public IParallelSystem<OctreesSolver>
     {
     public:
-        sg_implement_type_id(SGCore::OctreesSolver)
+        SG_IMPLEMENT_TYPE_ID(SGCore::OctreesSolver)
 
         OctreesSolver();
 

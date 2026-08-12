@@ -13,7 +13,7 @@ namespace SGCore
     
     struct SGCORE_EXPORT AtmosphereUpdater : public ISystem
     {
-        sg_implement_type_id(SGCore::AtmosphereUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::AtmosphereUpdater)
 
         AtmosphereUpdater() noexcept;
         

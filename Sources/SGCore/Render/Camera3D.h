@@ -14,6 +14,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT Camera3D : ECS::Component<Camera3D, const Camera3D>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Camera3D);
+
         std::unordered_set<ECS::entity_t> m_pickedEntities;
         // todo: make saving
         std::vector<EntityRef> m_cullingOctrees;

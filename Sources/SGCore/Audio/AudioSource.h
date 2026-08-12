@@ -15,7 +15,7 @@
 #include "SGCore/Memory/AssetRef.h"
 #include "SGCore/Utils/Playable.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -48,7 +48,9 @@ namespace SGCore
      */
     struct SGCORE_EXPORT AudioSource : ECS::Component<AudioSource, const AudioSource>, Playable
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
+
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::AudioSource);
 
         friend struct AudioProcessor;
 

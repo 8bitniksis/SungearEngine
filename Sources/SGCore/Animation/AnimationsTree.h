@@ -17,6 +17,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT AnimationsTree : ECS::Component<AnimationsTree, const AnimationsTree>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::AnimationsTree);
+
         std::vector<Ref<IAnimationNode>> m_rootNodes;
 
         template<typename NodeT>

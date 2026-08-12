@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT VolumetricFog : ECS::Component<VolumetricFog, const VolumetricFog>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::VolumetricFog);
+
         float m_density = 1.0f;
         float m_coverage = 1.0f;
     };

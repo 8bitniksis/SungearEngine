@@ -13,6 +13,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT CSMTarget : ECS::Component<CSMTarget, const CSMTarget>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::CSMTarget);
+
         CSMTarget();
 
         const std::vector<CSMCascade>& getCascades() const noexcept;

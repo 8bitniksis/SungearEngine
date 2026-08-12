@@ -37,9 +37,9 @@ namespace SGCore
     public:
         friend class AssetManager;
 
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::ITexture2D)
+        SG_IMPLEMENT_TYPE_ID(SGCore::ITexture2D)
 
         ~ITexture2D() override = default;
 

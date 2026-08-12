@@ -27,7 +27,7 @@ namespace SGCore
     class SGCORE_EXPORT AssetManager : public std::enable_shared_from_this<AssetManager>
     {
     public:
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         friend class IAsset;
 

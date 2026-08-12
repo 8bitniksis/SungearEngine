@@ -22,9 +22,9 @@ namespace SGCore::UI
 {
     struct SGCORE_EXPORT CSSStyle : IAsset
     {
-        sg_serde_as_friend();
+        SG_SERDE_AS_FRIEND();
 
-        sg_implement_type_id(SGCore::UI::CSSStyle)
+        SG_IMPLEMENT_TYPE_ID(SGCore::UI::CSSStyle)
 
         friend struct ANTLRCSSListener;
         friend struct CSSFile;

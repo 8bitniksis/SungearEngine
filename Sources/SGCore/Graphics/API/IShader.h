@@ -36,9 +36,9 @@ namespace SGCore
     public:
         friend class AssetManager;
 
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::IShader)
+        SG_IMPLEMENT_TYPE_ID(SGCore::IShader)
 
         sg_assets_refs_resolver_as_friend
 

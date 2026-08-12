@@ -18,7 +18,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name((Detail::getTypeName<T, TFormatType>()))
+        SG_SERDE_DEFINE_TYPE_NAME((Detail::getTypeName<T, TFormatType>()))
         static inline constexpr bool is_pointer_type = true;
         using element_type = T;
 
@@ -38,7 +38,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name((Detail::getTypeName<T, TFormatType>()))
+        SG_SERDE_DEFINE_TYPE_NAME((Detail::getTypeName<T, TFormatType>()))
         static inline constexpr bool is_pointer_type = true;
         using element_type = T;
 
@@ -58,7 +58,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name((Detail::getTypeName<T, TFormatType>()))
+        SG_SERDE_DEFINE_TYPE_NAME((Detail::getTypeName<T, TFormatType>()))
         static inline constexpr bool is_pointer_type = true;
         using element_type = T;
 
@@ -78,7 +78,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name((Detail::getTypeName<T, TFormatType>()))
+        SG_SERDE_DEFINE_TYPE_NAME((Detail::getTypeName<T, TFormatType>()))
         static inline constexpr bool is_pointer_type = true;
         using element_type = T;
 
@@ -98,7 +98,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::optional")
+        SG_SERDE_DEFINE_TYPE_NAME("std::optional")
         static inline constexpr bool is_pointer_type = false;
         using element_type = T;
 
@@ -116,7 +116,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("float")
+        SG_SERDE_DEFINE_TYPE_NAME("float")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const FloatingT, TFormatType>& valueView) noexcept
@@ -138,7 +138,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("int")
+        SG_SERDE_DEFINE_TYPE_NAME("int")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const IntegerT, TFormatType>& valueView) noexcept
@@ -159,7 +159,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::vector")
+        SG_SERDE_DEFINE_TYPE_NAME("std::vector")
         static inline constexpr bool is_pointer_type = false;
 
         template<typename... SharedDataT>
@@ -176,7 +176,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::array")
+        SG_SERDE_DEFINE_TYPE_NAME("std::array")
         static inline constexpr bool is_pointer_type = false;
 
         template<typename... SharedDataT>
@@ -195,7 +195,7 @@ namespace SGCore::Serde
     {
         using collection_t = std::unordered_set<T, HashT, EqualT>;
 
-        sg_serde_define_type_name("std::unordered_set")
+        SG_SERDE_DEFINE_TYPE_NAME("std::unordered_set")
         static inline constexpr bool is_pointer_type = false;
 
         template<typename... SharedDataT>
@@ -212,7 +212,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::list")
+        SG_SERDE_DEFINE_TYPE_NAME("std::list")
         static inline constexpr bool is_pointer_type = false;
 
         template<typename... SharedDataT>
@@ -229,7 +229,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::basic_string")
+        SG_SERDE_DEFINE_TYPE_NAME("std::basic_string")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const std::basic_string<CharT>, TFormatType>& valueView) noexcept;
@@ -250,7 +250,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::unordered_map")
+        SG_SERDE_DEFINE_TYPE_NAME("std::unordered_map")
         static inline constexpr bool is_pointer_type = false;
 
         template<typename... SharedDataT>
@@ -267,7 +267,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("std::filesystem::path")
+        SG_SERDE_DEFINE_TYPE_NAME("std::filesystem::path")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const std::filesystem::path, TFormatType>& valueView) noexcept;
@@ -282,7 +282,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("bool")
+        SG_SERDE_DEFINE_TYPE_NAME("bool")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const bool, TFormatType>& valueView) noexcept;
@@ -296,7 +296,7 @@ namespace SGCore::Serde
     requires(std::is_enum_v<T>)
     struct SerdeSpec<T, TFormatType> : BaseTypes<>, DerivedTypes<>
     {
-        sg_serde_define_type_name("enum")
+        SG_SERDE_DEFINE_TYPE_NAME("enum")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const T, TFormatType>& valueView) noexcept
@@ -315,7 +315,7 @@ namespace SGCore::Serde
     template<typename ClockT, typename DurationT, FormatType TFormatType>
     struct SerdeSpec<std::chrono::time_point<ClockT, DurationT>, TFormatType> : BaseTypes<>, DerivedTypes<>
     {
-        sg_serde_define_type_name("std::chrono::time_point")
+        SG_SERDE_DEFINE_TYPE_NAME("std::chrono::time_point")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const std::chrono::time_point<ClockT, DurationT>, TFormatType>& valueView) noexcept;

@@ -7,7 +7,7 @@
 #include "ByteFileAsset.h"
 #include "al.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -21,7 +21,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT AudioTrackAsset : public ByteFileAsset
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         static constexpr inline size_t asset_type_id = 2;
 

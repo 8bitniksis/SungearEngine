@@ -11,6 +11,8 @@ namespace SGCore::Navigation
 {
     struct SGCORE_EXPORT NavObstacle : ECS::Component<NavObstacle, const NavObstacle>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Navigation::NavObstacle);
+
     private:
         bool m_dummy = true;
     };

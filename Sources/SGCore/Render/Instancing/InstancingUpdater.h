@@ -10,7 +10,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT InstancingUpdater : ISystem
     {
-        sg_implement_type_id(SGCore::InstancingUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::InstancingUpdater)
 
         void update(double dt, double fixedDt) noexcept final;
     };

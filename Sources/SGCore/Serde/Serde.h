@@ -198,9 +198,9 @@ namespace SGCore::Serde
                       "This type is not serializable. Please, implement specialization of SerdeSpec for this type.");
 
         /**
-         * Required field. See sg_serde_define_type_name in SGCore/Serde/Defines.h
+         * Required field. See SG_SERDE_DEFINE_TYPE_NAME in SGCore/Serde/Defines.h
          */
-        sg_serde_define_type_name("Example")
+        SG_SERDE_DEFINE_TYPE_NAME("Example")
 
         /**
          * Is T is pointer type

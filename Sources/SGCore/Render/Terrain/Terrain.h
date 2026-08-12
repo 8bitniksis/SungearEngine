@@ -20,6 +20,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT Terrain : ECS::Component<Terrain, const Terrain>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Terrain);
+
         TesselationParams m_tesselationParams;
 
         float m_heightScale = 100.0f;

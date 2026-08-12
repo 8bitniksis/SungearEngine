@@ -25,6 +25,7 @@
 #include "SGCore/Serde/Serde.h"
 #include "SGCore/Serde/StandardSerdeSpecs/STD.h"
 #include "SGCore/Serde/StandardSerdeSpecs/Utils.h"
+#include "SGCore/ECS/Visitors.h"
 
 SGCore::Signal<void()> SGCore::CoreMain::onInit;
 std::filesystem::path SGCore::CoreMain::s_sungearEngineRootPath;
@@ -46,36 +47,6 @@ void SGCore::CoreMain::init()
     // ================================================================================
     
     const char* sungearEngineRoot = std::getenv("SUNGEAR_SOURCES_ROOT");
-    /*if(!sungearEngineRoot)
-    {
-        const std::string errorMsg = "The 'SUNGEAR_SOURCES_ROOT' environment variable does not exist. "
-                                     "Make sure that you have added 'SUNGEAR_SOURCES_ROOT' to the environment variables. "
-                                     "In the variable value, specify the path to the Sungear Engine. "
-                                     "Until then, you will not be able to build the project, as well as some other features of the engine.";
-
-        SG_LOG_C_UNFORMATTED(errorMsg)
-        assert(errorMsg.c_str());
-        std::exit(0);
-    }
-    else
-    {
-        const std::filesystem::path sungearEngineRootPath = sungearEngineRoot;
-        const std::filesystem::path sungearEngineIncludeCMakeFile = sungearEngineRootPath / "cmake/SungearEngineInclude.cmake";
-        if (!std::filesystem::exists(sungearEngineRootPath) ||
-            !std::filesystem::exists(sungearEngineIncludeCMakeFile))
-        {
-            const std::string errorMsg = "The 'SUNGEAR_SOURCES_ROOT' environment variable contains an invalid value. "
-                                         "Make sure that the 'SUNGEAR_SOURCES_ROOT' environment variable contains the correct value and indeed points to the Sungear Engine root folder. "
-                                         "Until then, you will not be able to build the project, as well as some other features of the engine.\n"
-                                         "Current value of 'SUNGEAR_SOURCES_ROOT': " + std::string(sungearEngineRoot);
-
-            SG_LOG_C_UNFORMATTED(errorMsg)
-            assert(errorMsg.c_str());
-            std::exit(0);
-        }
-
-        s_sungearEngineRootPath = sungearEngineRootPath;
-    }*/
 
     if(sungearEngineRoot)
     {
@@ -92,7 +63,8 @@ void SGCore::CoreMain::init()
 
     PathInterpolationMarkupSpec::setKey("enginePath", s_sungearEngineRootPath);
 
-    std::cout << "core init" << std::endl;
+    SG_LOG_I("SGCore start...");
+    SG_LOG_I("Removing tmp directories...");
 
     try
     {
@@ -104,7 +76,13 @@ void SGCore::CoreMain::init()
         std::printf("err: %s\n", e.what());
     }
 
+    SG_LOG_I("Registering standard meta info...");
+
     MetaInfo::addStandardMetaInfo();
+
+    SG_LOG_I("Registering standard visitors for ECS components...");
+
+    ECS::addStandardVisitors(ECS::VisitorsRegistry::instance());
 
     SGSLETranslator::includeDirectory(s_sungearEngineRootPath / "Resources");
 
@@ -116,23 +94,40 @@ void SGCore::CoreMain::init()
     /*system("chcp 65001");
     setlocale(LC_ALL, "Russian");*/
 
+    SG_LOG_I("Creating standard renderer...");
+
     m_renderer = GL4Renderer::getInstance();
     // m_renderer = GL46Renderer::getInstance();
     //m_renderer = VkRenderer::getInstance();
+
+    SG_LOG_I("Creating window...");
 
     m_window.create();
 
     SGCore::ImGuiWrap::ImGuiLayer::init();
 
+    SG_LOG_I("Initializing audio...");
+
     AudioDevice::init();
     AudioDevice::getDefaultDevice()->makeCurrent();
 
+    SG_LOG_I("Initializing renderer...");
+
     m_renderer->init();
+
+    SG_LOG_I("Adding standard assets...");
 
     AssetManager::getInstance()->addStandardAssets();
 
+    SG_LOG_I("Initializing standard paths...");
+
     Paths::init();
+
+    SG_LOG_I("Initializing standard fonts...");
+
     UI::FontsManager::getInstance().init();
+
+    SG_LOG_I("Setting callbacks...");
 
     m_renderTimer.onPreUpdate = updateStart;
     m_renderTimer.onPostUpdate = updateEnd;
@@ -146,12 +141,16 @@ void SGCore::CoreMain::init()
 
     Window::onFrameBufferSizeChanged += onFrameBufferResize;
 
+    SG_LOG_I("Calling onInit signal...");
+
     onInit();
 
     m_fixedTimer.resetTimer();
     m_renderTimer.resetTimer();
 
     m_isInitialized = true;
+
+    SG_LOG_I("SGCore was successfully initialized!");
 }
 
 void SGCore::CoreMain::startCycle() noexcept

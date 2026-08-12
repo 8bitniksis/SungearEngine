@@ -21,6 +21,8 @@ namespace SGCore::Navigation
 {
     struct SGCORE_EXPORT NavGrid3D : ECS::Component<NavGrid3D, const NavGrid3D>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Navigation::NavGrid3D);
+
         struct Node
         {
             glm::vec3 m_position{};

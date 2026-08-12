@@ -19,6 +19,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT Instancing : ECS::Component<Instancing, const Instancing>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Instancing);
+
         std::vector<ECS::entity_t> m_entities;
 
         [[nodiscard]] AssetRef<IMeshData> getBaseMeshData() const noexcept;

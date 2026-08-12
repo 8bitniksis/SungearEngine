@@ -11,6 +11,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT ObjectsCullingOctree : ECS::Component<ObjectsCullingOctree, const ObjectsCullingOctree>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::ObjectsCullingOctree);
+
     private:
         bool m_dummy = true;
     };

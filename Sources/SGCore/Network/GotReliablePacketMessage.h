@@ -11,6 +11,6 @@ namespace SGCore::Net
 {
     struct SGCORE_EXPORT GotReliablePacketMessage
     {
-        sg_implement_nonvirtual_type_id(SGCore::Net::GotReliablePacketMessage);
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Net::GotReliablePacketMessage);
     };
 }

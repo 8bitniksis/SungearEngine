@@ -9,13 +9,13 @@
 #include "SGCore/Utils/SGSL/SGSLESubShaderType.h"
 #include "SGCore/Serde/Defines.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
     struct SGCORE_EXPORT SGSLESubShader
     {
-        sg_serde_as_friend();
+        SG_SERDE_AS_FRIEND();
 
         friend struct SGSLETranslator;
         friend struct ShaderAnalyzedFile;

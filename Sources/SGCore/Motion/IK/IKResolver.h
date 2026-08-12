@@ -18,7 +18,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT IKResolver : ISystem
     {
-        sg_implement_type_id(SGCore::IKResolver)
+        SG_IMPLEMENT_TYPE_ID(SGCore::IKResolver)
 
         void update(double dt, double fixedDt) final;
 

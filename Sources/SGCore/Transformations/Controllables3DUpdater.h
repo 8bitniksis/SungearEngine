@@ -10,7 +10,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT Controllables3DUpdater : public ISystem
     {
-        sg_implement_type_id(SGCore::Controllables3DUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Controllables3DUpdater)
 
         void fixedUpdate(double dt, double fixedDt) final;
     };

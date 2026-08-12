@@ -12,7 +12,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT GotoAnimationNode : IAnimationNode
     {
-        sg_implement_type_id(SGCore::GotoAnimationNode)
+        SG_IMPLEMENT_TYPE_ID(SGCore::GotoAnimationNode)
 
         glm::vec3 m_destination {};
         float m_distanceErrorRate = 1.0f;

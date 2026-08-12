@@ -11,6 +11,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT SphereGizmo : ECS::Component<SphereGizmo, const SphereGizmo>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::SphereGizmo);
+
         GizmoBase m_base;
 
         float m_radius = 5.0;

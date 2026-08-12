@@ -12,7 +12,7 @@
 
 #include "SGCore/Serde/Defines.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore::CMake
 {
@@ -25,7 +25,7 @@ namespace SGCore::CMake
 
     struct SGCORE_EXPORT PresetsFileInfo
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         PresetsFileInfo() noexcept = default;;
         explicit PresetsFileInfo(const std::filesystem::path& cmakePresetsPath) noexcept;

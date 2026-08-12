@@ -20,7 +20,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT TransformationsUpdater : public ISystem
     {
-        sg_implement_type_id(SGCore::TransformationsUpdater)
+        SG_IMPLEMENT_TYPE_ID(SGCore::TransformationsUpdater)
 
         friend struct PhysicsWorld3D;
 

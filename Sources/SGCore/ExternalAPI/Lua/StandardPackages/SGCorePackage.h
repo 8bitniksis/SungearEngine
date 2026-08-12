@@ -12,9 +12,9 @@ namespace SGCore::Lua
     {
         sg_declare_lua_package(SGCore)
 
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::Lua::SGCorePackage)
+        SG_IMPLEMENT_TYPE_ID(SGCore::Lua::SGCorePackage)
 
     private:
         void doLoadInState(sol::state& luaState, function_result& packageResult) noexcept override;

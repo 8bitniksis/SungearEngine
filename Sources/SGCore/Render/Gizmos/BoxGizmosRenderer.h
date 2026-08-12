@@ -10,7 +10,7 @@ namespace SGCore
 {
     class SGCORE_EXPORT BoxGizmosRenderer : public ISystem
     {
-        sg_implement_type_id(SGCore::BoxGizmosRenderer)
+        SG_IMPLEMENT_TYPE_ID(SGCore::BoxGizmosRenderer)
 
         void fixedUpdate(double dt, double fixedDt) final;
     };

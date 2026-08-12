@@ -11,7 +11,7 @@ namespace SGCore
 {
     struct SGCORE_EXPORT SkeletalAnimationNode : IAnimationNode
     {
-        sg_implement_type_id(SGCore::SkeletalAnimationNode)
+        SG_IMPLEMENT_TYPE_ID(SGCore::SkeletalAnimationNode)
 
         AssetRef<SkeletalAnimationAsset> m_skeletalAnimation;
 

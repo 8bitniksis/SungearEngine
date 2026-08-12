@@ -12,9 +12,9 @@ namespace SGCore
 {
     struct SGCORE_EXPORT ShaderAnalyzedFile : public IAsset
     {
-        sg_serde_as_friend();
+        SG_SERDE_AS_FRIEND();
 
-        sg_implement_type_id(SGCore::ShaderAnalyzedFile)
+        SG_IMPLEMENT_TYPE_ID(SGCore::ShaderAnalyzedFile)
 
         friend struct SGSLETranslator;
         friend class AssetManager;

@@ -13,6 +13,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT Atmosphere : ECS::Component<Atmosphere, const Atmosphere>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Atmosphere);
+
         Atmosphere() noexcept;
         Atmosphere(const Atmosphere&) noexcept = default;
         Atmosphere(Atmosphere&& atmosphere) noexcept = default;

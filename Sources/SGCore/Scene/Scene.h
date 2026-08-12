@@ -9,7 +9,7 @@
 #include "SGCore/Memory/Assets/IAsset.h"
 #include "SGCore/ECS/Registry.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -46,7 +46,7 @@ namespace SGCore
         };
 
     public:
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         ~Scene();
 

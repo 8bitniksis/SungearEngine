@@ -13,7 +13,7 @@ namespace SGCore
     // todo: del
     struct SGCORE_EXPORT ShaderFileAsset : public IAsset
     {
-        sg_implement_type_id(SGCore::ShaderFileAsset)
+        SG_IMPLEMENT_TYPE_ID(SGCore::ShaderFileAsset)
 
     protected:
         void doLoad(const InterpolatedPath& path) override;

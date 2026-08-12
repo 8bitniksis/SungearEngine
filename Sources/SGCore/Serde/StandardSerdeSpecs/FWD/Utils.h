@@ -31,7 +31,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<EntityBaseInfo>
     {
-        sg_serde_define_type_name("SGCore::UniqueNameWrapper")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::UniqueNameWrapper")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const UniqueNameWrapper, TFormatType>& valueView) noexcept;
@@ -46,7 +46,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::UniqueName")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::UniqueName")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const UniqueName, TFormatType>& valueView) noexcept;
@@ -61,7 +61,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::LoadablePluginConfig")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::LoadablePluginConfig")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const LoadablePluginConfig, TFormatType>& valueView) noexcept;
@@ -76,7 +76,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::Config")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::Config")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const Config, TFormatType>& valueView) noexcept;
@@ -91,7 +91,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::InterpolatedPath")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::InterpolatedPath")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const InterpolatedPath, TFormatType>& valueView) noexcept;
@@ -106,7 +106,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::CMake::Preset")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::CMake::Preset")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const CMake::Preset, TFormatType>& valueView, const CMake::PresetsFileInfo& presetsFile) noexcept;
@@ -121,7 +121,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("SGCore::CMake::PresetsFileInfo")
+        SG_SERDE_DEFINE_TYPE_NAME("SGCore::CMake::PresetsFileInfo")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const CMake::PresetsFileInfo, TFormatType>& valueView) noexcept;
@@ -136,7 +136,7 @@ namespace SGCore::Serde
             BaseTypes<>,
             DerivedTypes<>
     {
-        sg_serde_define_type_name("spdlog::details::log_msg")
+        SG_SERDE_DEFINE_TYPE_NAME("spdlog::details::log_msg")
         static inline constexpr bool is_pointer_type = false;
 
         static void serialize(SerializableValueView<const spdlog::details::log_msg, TFormatType>& valueView) noexcept;

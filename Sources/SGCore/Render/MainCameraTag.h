@@ -12,6 +12,6 @@ namespace SGCore
 {
     struct SGCORE_EXPORT MainCameraTag : ECS::Component<MainCameraTag, const MainCameraTag>, ECS::SingletonComponent<MainCameraTag>
     {
-        sg_implement_singleton_component(SGCore::MainCameraTag)
+        SG_IMPLEMENT_SINGLETON_COMPONENT(SGCore::MainCameraTag);
     };
 }

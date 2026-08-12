@@ -19,6 +19,8 @@ namespace SGCore
     {
         sg_assets_refs_resolver_as_friend
 
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::MotionPlanner);
+
         MotionPlanner() noexcept;
         MotionPlanner(const MotionPlanner&) noexcept = default;
         MotionPlanner(MotionPlanner&&) noexcept = default;

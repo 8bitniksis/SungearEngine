@@ -11,6 +11,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT LineGizmo : ECS::Component<LineGizmo, const LineGizmo>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::LineGizmo);
+
         LineGizmo() noexcept;
 
         GizmoBase m_base;

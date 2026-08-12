@@ -11,6 +11,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT SpotLight : ECS::Component<SpotLight, const SpotLight>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::SpotLight);
+
         SpotLight() noexcept;
 
         LightBase m_base;

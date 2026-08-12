@@ -16,7 +16,7 @@ namespace SGCore
      */
     struct SGCORE_EXPORT AudioProcessor : public ISystem
     {
-        sg_implement_type_id(SGCore::AudioProcessor)
+        SG_IMPLEMENT_TYPE_ID(SGCore::AudioProcessor)
 
         void update(double dt, double fixedDt) override;
     };

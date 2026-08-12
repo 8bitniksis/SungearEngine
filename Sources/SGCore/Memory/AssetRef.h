@@ -12,7 +12,7 @@ namespace SGCore
     template<typename AssetT>
     struct AssetRef
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         friend class AssetManager;
 

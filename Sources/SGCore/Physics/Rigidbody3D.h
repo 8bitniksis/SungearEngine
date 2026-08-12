@@ -19,7 +19,7 @@
 #include "SGCore/Serde/Defines.h"
 #include "Constraint.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -27,7 +27,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT Rigidbody3D final : ECS::Component<Rigidbody3D, const Rigidbody3D>
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Rigidbody3D);
 
         friend struct PhysicsWorld3D;
         friend struct TransformationsUpdater;
@@ -39,7 +40,7 @@ namespace SGCore
         Rigidbody3D(const Rigidbody3D& other) noexcept = default;
         Rigidbody3D(Rigidbody3D&& other) noexcept = default;
         
-        ~Rigidbody3D() override;
+        ~Rigidbody3D();
         
         Scope<btMotionState> m_state;
 

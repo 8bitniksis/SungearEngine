@@ -13,6 +13,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT Pickable : ECS::Component<Pickable, const Pickable>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::Pickable);
+
         // refs to cameras entities
         std::vector<EntityRef> m_pickableForCameras;
 

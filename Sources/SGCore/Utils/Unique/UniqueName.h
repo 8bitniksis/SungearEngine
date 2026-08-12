@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <sgcore_export.h>
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -19,7 +19,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT UniqueName final
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         friend class UniqueNamesManager;
 
@@ -71,7 +71,7 @@ namespace SGCore
     // wrapper class for unique name for inheritance
     class UniqueNameWrapper
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
     public:
 
         virtual ~UniqueNameWrapper() = default;

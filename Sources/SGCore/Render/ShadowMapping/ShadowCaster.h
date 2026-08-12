@@ -11,6 +11,8 @@ namespace SGCore
     /// Tag to indicate object that can cast shadows.
     struct SGCORE_EXPORT ShadowCaster : ECS::Component<ShadowCaster, const ShadowCaster>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::ShadowCaster);
+
     private:
         bool m_dummy = false;
     };

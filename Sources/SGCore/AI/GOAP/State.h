@@ -75,6 +75,8 @@ namespace SGCore::GOAP
      */
     struct SGCORE_EXPORT EntityState : ECS::Component<EntityState, const EntityState>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::GOAP::EntityState);
+
         /**
          * @param state State.
          * @return State data.

@@ -18,6 +18,8 @@ namespace SGCore
 
     struct SGCORE_EXPORT WheeledVehicle final : ECS::Component<WheeledVehicle, const WheeledVehicle>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::WheeledVehicle);
+
         friend struct VehicleWheel;
 
         btRaycastVehicle::btVehicleTuning m_tuning {};
@@ -30,7 +32,7 @@ namespace SGCore
                        const Rigidbody3D& chassisBody,
                        const btRaycastVehicle::btVehicleTuning& tuning) noexcept;
 
-        ~WheeledVehicle() override;
+        ~WheeledVehicle();
 
         void addWheel(const VehicleWheel::CreationParams& params, ECS::entity_t wheelEntity) noexcept;
         void removeWheel(ECS::entity_t wheelEntity) noexcept;

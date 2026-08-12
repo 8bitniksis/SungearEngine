@@ -10,6 +10,8 @@ namespace SGCore
 {
     struct SGCORE_EXPORT EnableDecalPass : ECS::Component<EnableDecalPass, const EnableDecalPass>
     {
+        SG_IMPLEMENT_STATIC_TYPE_ID(SGCore::EnableDecalPass);
+
     private:
         bool m_dummy = false;
     };

@@ -13,7 +13,7 @@
 #include "Vertex.h"
 #include "Bone.h"
 
-sg_predeclare_serde()
+SG_PREDECLARE_SERDE()
 
 namespace SGCore
 {
@@ -29,7 +29,7 @@ namespace SGCore
 
     struct SGCORE_EXPORT VertexColorsSet
     {
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
         friend class IMeshData;
 
@@ -43,9 +43,9 @@ namespace SGCore
     class SGCORE_EXPORT IMeshData : public IAsset, public IAssetsRefsResolver<IMeshData>
     {
     public:
-        sg_serde_as_friend()
+        SG_SERDE_AS_FRIEND()
 
-        sg_implement_type_id(SGCore::IMeshData)
+        SG_IMPLEMENT_TYPE_ID(SGCore::IMeshData)
 
         sg_assets_refs_resolver_as_friend
 

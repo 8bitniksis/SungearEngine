@@ -7,8 +7,8 @@
 #include "SGCore/Utils/StaticTypeID.h"
 #include "Registry.h"
 
-#define sg_implement_singleton_component(ComponentT) \
-    sg_implement_nonvirtual_type_id(ComponentT);
+#define SG_IMPLEMENT_SINGLETON_COMPONENT(ComponentT) \
+    SG_IMPLEMENT_STATIC_TYPE_ID(ComponentT);
 
 namespace SGCore::ECS
 {
@@ -28,7 +28,7 @@ namespace SGCore::ECS
         {
             static_assert(
                 requires { DerivedT::getTypeIDStatic(); },
-                "Please, implement singleton component sg_implement_singleton_component() macro."
+                "Please, implement singleton component SG_IMPLEMENT_SINGLETON_COMPONENT() macro."
             );
         }
     };

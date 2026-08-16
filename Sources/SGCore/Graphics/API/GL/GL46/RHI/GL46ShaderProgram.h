@@ -22,6 +22,10 @@ namespace SGCore
         [[nodiscard]] bool isValid() const noexcept override { return m_program != 0; }
         [[nodiscard]] GLuint getHandle() const noexcept { return m_program; }
 
+        /// Queries the program interface of a linked GL program (uniform blocks with members and
+        /// per-element array strides in BlockMember::m_paddedSize, samplers, vertex inputs).
+        static void reflectProgram(GLuint program, ShaderReflection& out) noexcept;
+
     private:
         GLuint m_program { };
 

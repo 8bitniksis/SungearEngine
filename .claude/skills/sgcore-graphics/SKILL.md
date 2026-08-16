@@ -232,6 +232,15 @@ description: >-
   в дескрипторный набор передаются как `Ref` с пустым делитером (не владеем).
   `IRenderer::readScreenPixels()` читает backbuffer (GL: `glReadPixels` с FB 0, RGBA8,
   строки снизу вверх). `AttachmentReadback` — в `Graphics/API/AttachmentReadback.h`.
+- **`GL46Shader` в RHI-режиме** (`m_useRHIUniforms`, ставит `GL46Renderer::createShader`): код
+  стадий проходит вулканизатор (OPENGL, `m_firstBinding = 8` — точки 1–4 у legacy-`IUniformBuffer`,
+  которые перекрывают `layout(binding)` через `glUniformBlockBinding`), после линковки —
+  `GL46ShaderProgram::reflectProgram`, UBO на каждый `SGLegacyUniforms_<stage>` (нули +
+  дефолты из `Report::m_defaults`), `useX("имя")` → `glNamedBufferSubData` по offset/stride
+  (`name[i]` — элемент массива, stride из `BlockMember::m_paddedSize`; юниформ в нескольких
+  стадиях пишется во все блоки). Сэмплеры (`useTextureBlock`, `useTexture`) — по-прежнему
+  `glUniform1i`: `layout(binding)` у сэмплера — лишь начальное значение, glUniform его перекрывает.
+  `bind()` = `glUseProgram` + `glBindBufferBase` legacy-блоков. GL4Renderer этот режим не включает.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 

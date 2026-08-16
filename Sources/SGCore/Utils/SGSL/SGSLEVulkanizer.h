@@ -94,7 +94,18 @@ namespace SGCore
             std::uint32_t m_builtinsReplaced { };
             std::uint32_t m_initializersDropped { };
 
+            /// A loose uniform that had an initializer (`uniform float x = 6.0;`): block members can not
+            /// carry one, so the value is reported here for the consumer to write as the default.
+            struct DefaultValue
+            {
+                std::string m_blockName;
+                std::string m_memberName;
+                /// Initializer expression text as written, e.g. "6.0" or "vec4(0.0, 0.0, 0.0, 1.0)".
+                std::string m_expression;
+            };
+
             std::vector<Binding> m_bindings;
+            std::vector<DefaultValue> m_defaults;
             std::vector<std::string> m_warnings;
         };
 

@@ -103,6 +103,7 @@ namespace
         std::string m_arraySuffix;
         std::uint32_t m_arrayCount = 1;
         bool m_hadInitializer { };
+        std::string m_initializer;
         std::vector<std::string> m_conditions;
         std::optional<std::uint32_t> m_explicitBinding;
         bool m_layoutHasSet { };
@@ -394,7 +395,17 @@ namespace
 
         for(; k < tokens.size(); ++k)
         {
-            if(tokens[k].m_text == "=") { declaration.m_hadInitializer = true; break; }
+            if(tokens[k].m_text == "=")
+            {
+                declaration.m_hadInitializer = true;
+                std::size_t initEnd = end;
+                for(std::size_t j = k + 1; j < tokens.size(); ++j)
+                {
+                    if(tokens[j].m_text == ";") { initEnd = tokens[j].m_pos; break; }
+                }
+                declaration.m_initializer = trim(code.substr(tokens[k].m_pos + 1, initEnd - tokens[k].m_pos - 1));
+                break;
+            }
             if(tokens[k].m_text == ",")
             {
                 warnings.push_back("uniform '" + declaration.m_name + "' is declared in a comma list; only the first declarator is handled");
@@ -705,7 +716,11 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
                                                 std::to_string(std::to_underlying(stages[s].m_type)) + "; first one kept");
                 }
 
-                if(declaration.m_hadInitializer) ++report.m_initializersDropped;
+                if(declaration.m_hadInitializer)
+                {
+                    ++report.m_initializersDropped;
+                    report.m_defaults.push_back({ legacy.m_blockName, declaration.m_name, declaration.m_initializer });
+                }
             }
         }
     }

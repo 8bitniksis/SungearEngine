@@ -67,6 +67,7 @@ SGCore::GL46Shader* SGCore::GL46Renderer::createShader()
     // shader variant and is mandatory — without it every stage is preprocessed away
     auto* shader = new GL46Shader;
     shader->m_version = "460 core";
+    shader->m_useRHIUniforms = true;
     shader->addDefine(SGShaderDefineType::SGG_OTHER_DEFINE, ShaderDefine("SG_GLSL4", ""));
 
     m_storage.m_shaders.insert(shader);

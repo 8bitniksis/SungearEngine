@@ -157,24 +157,29 @@ GLuint SGCore::GL46ShaderProgram::compileStage(const ShaderStageSource& stage) n
 
 void SGCore::GL46ShaderProgram::reflect() noexcept
 {
-    m_reflection = ShaderReflection { };
+    reflectProgram(m_program, m_reflection);
+}
+
+void SGCore::GL46ShaderProgram::reflectProgram(GLuint program, ShaderReflection& out) noexcept
+{
+    out = ShaderReflection { };
 
     // uniform blocks: name, binding point, size, members with offsets
     GLint blocksCount = 0;
-    glGetProgramInterfaceiv(m_program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &blocksCount);
+    glGetProgramInterfaceiv(program, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &blocksCount);
     for(GLint b = 0; b < blocksCount; ++b)
     {
         const GLuint blockIndex = static_cast<GLuint>(b);
         ShaderReflection::DescriptorBinding binding;
         binding.m_type = ShaderDescriptorType::UNIFORM_BUFFER;
-        binding.m_name = resourceName(m_program, GL_UNIFORM_BLOCK, blockIndex);
+        binding.m_name = resourceName(program, GL_UNIFORM_BLOCK, blockIndex);
 
         const GLenum properties[] = { GL_BUFFER_BINDING, GL_BUFFER_DATA_SIZE, GL_NUM_ACTIVE_VARIABLES,
                                       GL_REFERENCED_BY_VERTEX_SHADER, GL_REFERENCED_BY_FRAGMENT_SHADER,
                                       GL_REFERENCED_BY_GEOMETRY_SHADER, GL_REFERENCED_BY_COMPUTE_SHADER,
                                       GL_REFERENCED_BY_TESS_CONTROL_SHADER, GL_REFERENCED_BY_TESS_EVALUATION_SHADER };
         GLint values[9] = { };
-        glGetProgramResourceiv(m_program, GL_UNIFORM_BLOCK, blockIndex, 9, properties, 9, nullptr, values);
+        glGetProgramResourceiv(program, GL_UNIFORM_BLOCK, blockIndex, 9, properties, 9, nullptr, values);
 
         binding.m_binding = static_cast<std::uint32_t>(values[0]);
         binding.m_blockSize = static_cast<std::uint32_t>(values[1]);
@@ -190,17 +195,17 @@ void SGCore::GL46ShaderProgram::reflect() noexcept
         {
             std::vector<GLint> variables(static_cast<std::size_t>(variablesCount));
             const GLenum activeVariables = GL_ACTIVE_VARIABLES;
-            glGetProgramResourceiv(m_program, GL_UNIFORM_BLOCK, blockIndex, 1, &activeVariables, variablesCount, nullptr, variables.data());
+            glGetProgramResourceiv(program, GL_UNIFORM_BLOCK, blockIndex, 1, &activeVariables, variablesCount, nullptr, variables.data());
 
             for(const auto variable : variables)
             {
                 const GLuint uniformIndex = static_cast<GLuint>(variable);
                 const GLenum memberProperties[] = { GL_OFFSET, GL_ARRAY_SIZE, GL_ARRAY_STRIDE, GL_TYPE };
                 GLint memberValues[4] = { };
-                glGetProgramResourceiv(m_program, GL_UNIFORM, uniformIndex, 4, memberProperties, 4, nullptr, memberValues);
+                glGetProgramResourceiv(program, GL_UNIFORM, uniformIndex, 4, memberProperties, 4, nullptr, memberValues);
 
                 ShaderReflection::BlockMember member;
-                member.m_name = resourceName(m_program, GL_UNIFORM, uniformIndex);
+                member.m_name = resourceName(program, GL_UNIFORM, uniformIndex);
                 // members of blocks that have an instance name are reported as "Block.member"
                 if(const auto dot = member.m_name.find('.'); dot != std::string::npos)
                 {
@@ -211,7 +216,8 @@ void SGCore::GL46ShaderProgram::reflect() noexcept
                 // GL does not report a member size directly; for arrays stride*count is exact,
                 // scalars/vectors are sized by type below via the padded stride heuristic
                 member.m_size = memberValues[2] > 0 ? static_cast<std::uint32_t>(memberValues[2]) * member.m_arrayCount : 0;
-                member.m_paddedSize = member.m_size;
+                // for arrays m_paddedSize is the stride of one element (what "name[i]" addressing needs)
+                member.m_paddedSize = memberValues[2] > 0 ? static_cast<std::uint32_t>(memberValues[2]) : 0;
                 binding.m_members.push_back(std::move(member));
             }
 
@@ -227,18 +233,18 @@ void SGCore::GL46ShaderProgram::reflect() noexcept
             }
         }
 
-        m_reflection.m_bindings.push_back(std::move(binding));
+        out.m_bindings.push_back(std::move(binding));
     }
 
     // samplers: default-block uniforms of sampler type; the texture unit is the uniform's value
     GLint uniformsCount = 0;
-    glGetProgramInterfaceiv(m_program, GL_UNIFORM, GL_ACTIVE_RESOURCES, &uniformsCount);
+    glGetProgramInterfaceiv(program, GL_UNIFORM, GL_ACTIVE_RESOURCES, &uniformsCount);
     for(GLint u = 0; u < uniformsCount; ++u)
     {
         const GLuint uniformIndex = static_cast<GLuint>(u);
         const GLenum properties[] = { GL_TYPE, GL_BLOCK_INDEX, GL_LOCATION, GL_ARRAY_SIZE };
         GLint values[4] = { };
-        glGetProgramResourceiv(m_program, GL_UNIFORM, uniformIndex, 4, properties, 4, nullptr, values);
+        glGetProgramResourceiv(program, GL_UNIFORM, uniformIndex, 4, properties, 4, nullptr, values);
 
         const auto type = static_cast<GLenum>(values[0]);
         if(values[1] != -1 || !isSamplerType(type) || values[2] < 0) continue;
@@ -246,31 +252,31 @@ void SGCore::GL46ShaderProgram::reflect() noexcept
         ShaderReflection::DescriptorBinding binding;
         binding.m_type = isTexelBufferSampler(type) ? ShaderDescriptorType::UNIFORM_TEXEL_BUFFER
                                                     : ShaderDescriptorType::COMBINED_IMAGE_SAMPLER;
-        binding.m_name = resourceName(m_program, GL_UNIFORM, uniformIndex);
+        binding.m_name = resourceName(program, GL_UNIFORM, uniformIndex);
         binding.m_count = values[3] > 0 ? static_cast<std::uint32_t>(values[3]) : 1;
 
         GLint unit = 0;
-        glGetUniformiv(m_program, values[2], &unit);
+        glGetUniformiv(program, values[2], &unit);
         binding.m_binding = static_cast<std::uint32_t>(unit);
-        m_reflection.m_bindings.push_back(std::move(binding));
+        out.m_bindings.push_back(std::move(binding));
     }
 
     // vertex inputs
     GLint inputsCount = 0;
-    glGetProgramInterfaceiv(m_program, GL_PROGRAM_INPUT, GL_ACTIVE_RESOURCES, &inputsCount);
+    glGetProgramInterfaceiv(program, GL_PROGRAM_INPUT, GL_ACTIVE_RESOURCES, &inputsCount);
     for(GLint i = 0; i < inputsCount; ++i)
     {
         const GLuint inputIndex = static_cast<GLuint>(i);
         const GLenum properties[] = { GL_LOCATION, GL_REFERENCED_BY_VERTEX_SHADER, GL_TYPE };
         GLint values[3] = { };
-        glGetProgramResourceiv(m_program, GL_PROGRAM_INPUT, inputIndex, 3, properties, 3, nullptr, values);
+        glGetProgramResourceiv(program, GL_PROGRAM_INPUT, inputIndex, 3, properties, 3, nullptr, values);
         if(!values[1] || values[0] < 0) continue;
 
         ShaderReflection::VertexInput input;
-        input.m_name = resourceName(m_program, GL_PROGRAM_INPUT, inputIndex);
+        input.m_name = resourceName(program, GL_PROGRAM_INPUT, inputIndex);
         if(input.m_name.rfind("gl_", 0) == 0) continue;
         input.m_location = static_cast<std::uint32_t>(values[0]);
         input.m_format = static_cast<std::uint32_t>(values[2]);
-        m_reflection.m_vertexInputs.push_back(std::move(input));
+        out.m_vertexInputs.push_back(std::move(input));
     }
 }

@@ -439,21 +439,44 @@ glm::vec3 SGCore::GL4FrameBuffer::readPixelsFromAttachment(const glm::vec2& mous
 
 
 bool SGCore::GL4FrameBuffer::readAttachmentPixels(SGFrameBufferAttachmentType attachmentType,
-                                                  std::vector<std::uint8_t>& outRGBA8) const noexcept
+                                                  AttachmentReadback& out) const noexcept
 {
-    if(!isColorAttachment(attachmentType) || !hasAttachment(attachmentType) || m_width <= 0 || m_height <= 0)
+    if(!isColorAttachment(attachmentType) || m_width <= 0 || m_height <= 0)
     {
         return false;
     }
 
-    outRGBA8.resize(static_cast<std::size_t>(m_width) * m_height * 4);
+    const auto attachment = getAttachment(attachmentType);
+    if(!attachment)
+    {
+        return false;
+    }
+
+    // read in the attachment's own layout: integer attachments (e.g. picking IDs) can not be
+    // read as normalized RGBA, and R/RG/RGB attachments must not be widened silently
+    const GLenum glFormat = GLGraphicsTypesCaster::sggFormatToGL(attachment->m_format);
+    const GLenum glDataType = GLGraphicsTypesCaster::sggDataTypeToGL(attachment->m_dataType);
+    const std::int8_t channelsCount = getSGGFormatChannelsCount(attachment->m_format);
+    const std::uint16_t channelSize = getSGGDataTypeSizeInBytes(attachment->m_dataType);
+
+    if(glDataType == GL_NONE || channelsCount <= 0 || channelSize == 0)
+    {
+        return false;
+    }
+
+    out.m_width = m_width;
+    out.m_height = m_height;
+    out.m_format = attachment->m_format;
+    out.m_dataType = attachment->m_dataType;
+    out.m_channelsCount = channelsCount;
+    out.m_data.resize(static_cast<std::size_t>(m_width) * m_height * channelsCount * channelSize);
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_handler);
     glReadBuffer(GL_COLOR_ATTACHMENT0 + (std::to_underlying(attachmentType) -
                                          std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0)));
 
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, outRGBA8.data());
+    glReadPixels(0, 0, m_width, m_height, glFormat, glDataType, out.m_data.data());
     glPixelStorei(GL_PACK_ALIGNMENT, 4);
 
     glReadBuffer(GL_NONE);

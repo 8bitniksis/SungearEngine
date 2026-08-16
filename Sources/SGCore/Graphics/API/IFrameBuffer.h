@@ -21,6 +21,17 @@ namespace SGCore
     class IMaterial;
     class ITexture2D;
 
+    /// Result of IFrameBuffer::readAttachmentPixels(): raw pixels plus the layout they are in.
+    struct AttachmentReadback
+    {
+        std::int32_t m_width { };
+        std::int32_t m_height { };
+        SGGColorFormat m_format = SGGColorFormat::SGG_RGBA;
+        SGGDataType m_dataType = SGGDataType::SGG_UNSIGNED_BYTE;
+        std::int8_t m_channelsCount { };
+        std::vector<std::uint8_t> m_data;
+    };
+
     // todo: make read and draw bindings
     class SGCORE_EXPORT IFrameBuffer : public UniqueNameWrapper, public std::enable_shared_from_this<IFrameBuffer>
     {
@@ -97,13 +108,15 @@ namespace SGCore
         [[nodiscard]] virtual glm::vec3 readPixelsFromAttachment(const glm::vec2& mousePos, SGFrameBufferAttachmentType attachmentType) const noexcept = 0;
 
         /**
-         * Reads the whole color attachment back to CPU as tightly packed RGBA8, bottom row first
-         * (rows are ordered the way the current graphics API stores them; callers that need
-         * top-down images must flip). Intended for tests and screenshots, not for per-frame use.
+         * Reads the whole color attachment back to CPU in the attachment's own format
+         * (m_format / m_dataType of the attachment texture), tightly packed, rows ordered the way
+         * the current graphics API stores them (bottom row first for OpenGL). Callers convert to
+         * whatever they need using \p out.m_format / \p out.m_dataType.
+         * Intended for tests and screenshots, not for per-frame use.
          * @return false if the backend does not support readback or the attachment is not a color attachment.
          */
         [[nodiscard]] virtual bool readAttachmentPixels(SGFrameBufferAttachmentType attachmentType,
-                                                        std::vector<std::uint8_t>& outRGBA8) const noexcept
+                                                        AttachmentReadback& out) const noexcept
         {
             return false;
         }

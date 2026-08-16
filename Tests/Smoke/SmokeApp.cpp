@@ -6,6 +6,7 @@
 
 #include <string>
 #include <tuple>
+#include <utility>
 #include <glm/gtc/quaternion.hpp>
 
 #include "ImageCompare.h"
@@ -27,6 +28,7 @@
 #include "SGCore/Render/ShadowMapping/CSM/CSMTarget.h"
 #include "SGCore/Render/ShadowMapping/ShadowCaster.h"
 #include "SGCore/Scene/Scene.h"
+#include "SGCore/Transformations/Controllable3D.h"
 #include "SGCore/Transformations/Transform.h"
 
 namespace
@@ -99,7 +101,11 @@ void SGSmoke::SmokeApp::buildScene() noexcept
     assetManager->loadAssetWithAlias<SGCore::ModelAsset>(
         "sphere_model", "${enginePath}/Resources/models/standard/sphere.obj");
 
-    // camera: fixed pose so the reference frame is reproducible
+    // camera: fixed pose so the reference frame is reproducible.
+    // BasicApp makes the camera controllable; Controllable3D rewrites the rotation from
+    // mouse deltas every frame, so it must go for the pose below to survive.
+    registry->remove<SGCore::Controllable3D>(m_cameraEntity);
+
     if(auto* cameraTransform = registry->tryGet<SGCore::Transform>(m_cameraEntity))
     {
         cameraTransform->m_localTransform.m_position = { 0.0f, 3.0f, 8.0f };
@@ -111,9 +117,16 @@ void SGSmoke::SmokeApp::buildScene() noexcept
     registry->emplace<SGCore::CSMTarget>(m_cameraEntity);
 
     // sun: low enough to throw long shadows across the floor
-    if(auto* atmosphere = registry->tryGet<SGCore::Atmosphere>(m_atmosphereEntity))
+    if(m_atmosphereEntity != entt::null)
     {
-        atmosphere->m_sunRotation = { 0.0f, 35.0f, 40.0f };
+        if(auto* atmosphere = registry->tryGet<SGCore::Atmosphere>(m_atmosphereEntity))
+        {
+            atmosphere->m_sunRotation = { 0.0f, 35.0f, 40.0f };
+        }
+    }
+    else
+    {
+        SG_LOG_W("Smoke: BasicApp created no atmosphere (cube_model failed to load?); frame will have no sun.");
     }
 
     std::size_t modelIndex = 0;
@@ -129,8 +142,8 @@ void SGSmoke::SmokeApp::buildScene() noexcept
         auto material = assetManager->getOrAddAssetByAlias<SGCore::IMaterial>(
             "smoke_material_" + std::to_string(modelIndex));
         material->setDiffuseColor(placed.m_color);
-        material->m_metallicFactor = placed.m_metallic;
-        material->m_roughnessFactor = placed.m_roughness;
+        material->setMetallicFactor(placed.m_metallic);
+        material->setRoughnessFactor(placed.m_roughness);
         material->m_transparencyType = placed.m_transparent
                                        ? SGCore::MaterialTransparencyType::MAT_BLEND
                                        : SGCore::MaterialTransparencyType::MAT_OPAQUE;
@@ -181,13 +194,20 @@ void SGSmoke::SmokeApp::captureAndFinish() noexcept
         return;
     }
 
-    RGBA8Image frame;
-    frame.m_width = frameReceiver->m_layersFXFrameBuffer->getWidth();
-    frame.m_height = frameReceiver->m_layersFXFrameBuffer->getHeight();
-
-    if(!frameReceiver->m_layersFXFrameBuffer->readAttachmentPixels(m_attachmentToDisplay, frame.m_pixels))
+    SGCore::AttachmentReadback readback;
+    if(!frameReceiver->m_layersFXFrameBuffer->readAttachmentPixels(m_attachmentToDisplay, readback))
     {
         SG_LOG_E("Smoke: current graphics API does not support frame readback.");
+        m_exitCode = 2;
+        SGCore::CoreMain::getWindow().setShouldClose(true);
+        return;
+    }
+
+    RGBA8Image frame;
+    if(!toRGBA8(readback, frame))
+    {
+        SG_LOG_E("Smoke: attachment layout (format {}, data type {}) can not be converted to RGBA8 for PNG.",
+                 std::to_underlying(readback.m_format), std::to_underlying(readback.m_dataType));
         m_exitCode = 2;
         SGCore::CoreMain::getWindow().setShouldClose(true);
         return;

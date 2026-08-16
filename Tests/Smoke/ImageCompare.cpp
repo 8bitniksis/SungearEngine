@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -17,6 +18,72 @@ bool SGSmoke::RGBA8Image::isValid() const noexcept
 {
     return m_width > 0 && m_height > 0 &&
            m_pixels.size() == static_cast<std::size_t>(m_width) * m_height * 4;
+}
+
+bool SGSmoke::toRGBA8(const SGCore::AttachmentReadback& readback, RGBA8Image& outImage) noexcept
+{
+    // channel order in the source: index of R, G, B, A within a source pixel (-1 = absent)
+    int sourceIndex[4] = { -1, -1, -1, -1 };
+    switch(readback.m_format)
+    {
+        case SGGColorFormat::SGG_R:    sourceIndex[0] = 0; break;
+        case SGGColorFormat::SGG_RG:   sourceIndex[0] = 0; sourceIndex[1] = 1; break;
+        case SGGColorFormat::SGG_RGB:  sourceIndex[0] = 0; sourceIndex[1] = 1; sourceIndex[2] = 2; break;
+        case SGGColorFormat::SGG_BGR:  sourceIndex[0] = 2; sourceIndex[1] = 1; sourceIndex[2] = 0; break;
+        case SGGColorFormat::SGG_RGBA: sourceIndex[0] = 0; sourceIndex[1] = 1; sourceIndex[2] = 2; sourceIndex[3] = 3; break;
+        case SGGColorFormat::SGG_BGRA: sourceIndex[0] = 2; sourceIndex[1] = 1; sourceIndex[2] = 0; sourceIndex[3] = 3; break;
+        default: return false;
+    }
+
+    const std::size_t pixelsCount = static_cast<std::size_t>(readback.m_width) * readback.m_height;
+    const std::size_t channels = static_cast<std::size_t>(readback.m_channelsCount);
+
+    auto readChannel = [&](std::size_t pixel, int channel) -> std::uint8_t
+    {
+        const std::size_t index = pixel * channels + static_cast<std::size_t>(channel);
+        switch(readback.m_dataType)
+        {
+            case SGGDataType::SGG_UNSIGNED_BYTE:
+                return readback.m_data[index];
+            case SGGDataType::SGG_UNSIGNED_SHORT:
+            {
+                std::uint16_t value { };
+                std::memcpy(&value, readback.m_data.data() + index * sizeof(value), sizeof(value));
+                return static_cast<std::uint8_t>(value >> 8);
+            }
+            case SGGDataType::SGG_FLOAT:
+            {
+                float value { };
+                std::memcpy(&value, readback.m_data.data() + index * sizeof(value), sizeof(value));
+                return static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f);
+            }
+            default:
+                return 0;
+        }
+    };
+
+    if(readback.m_dataType != SGGDataType::SGG_UNSIGNED_BYTE &&
+       readback.m_dataType != SGGDataType::SGG_UNSIGNED_SHORT &&
+       readback.m_dataType != SGGDataType::SGG_FLOAT)
+    {
+        return false;
+    }
+
+    outImage.m_width = readback.m_width;
+    outImage.m_height = readback.m_height;
+    outImage.m_pixels.resize(pixelsCount * 4);
+
+    for(std::size_t pixel = 0; pixel < pixelsCount; ++pixel)
+    {
+        for(int channel = 0; channel < 4; ++channel)
+        {
+            const int source = sourceIndex[channel];
+            outImage.m_pixels[pixel * 4 + channel] =
+                source >= 0 ? readChannel(pixel, source) : (channel == 3 ? 255 : 0);
+        }
+    }
+
+    return outImage.isValid();
 }
 
 void SGSmoke::flipVertically(RGBA8Image& image) noexcept

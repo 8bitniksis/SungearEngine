@@ -8,6 +8,8 @@
 #include <filesystem>
 #include <vector>
 
+#include "SGCore/Graphics/API/IFrameBuffer.h"
+
 namespace SGSmoke
 {
     struct RGBA8Image
@@ -26,6 +28,14 @@ namespace SGSmoke
         double m_differingPixelsFraction { };
         std::uint8_t m_maxChannelDifference { };
     };
+
+    /**
+     * Converts a raw attachment readback to RGBA8 for PNG output. Supports normalized color
+     * formats (R, RG, RGB, BGR, RGBA, BGRA) with UNSIGNED_BYTE, UNSIGNED_SHORT or FLOAT data
+     * (floats are clamped to [0;1]); missing channels are filled with 0, missing alpha with 255.
+     * @return false for integer / depth / unsupported layouts.
+     */
+    [[nodiscard]] bool toRGBA8(const SGCore::AttachmentReadback& readback, RGBA8Image& outImage) noexcept;
 
     /// Flips rows in place: graphics APIs with bottom-left origin return the frame upside down.
     void flipVertically(RGBA8Image& image) noexcept;

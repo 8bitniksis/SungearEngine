@@ -114,7 +114,9 @@ graph TD
 - 🎯 **Целевое направление** (утверждено 2026-08-16): основными API становятся
   **Vulkan** (Windows/Linux/Android) и **DirectX 12** (Windows); текущая
   абстракция скроена под GL (VAO, глобальный `RenderState`) и перед этим
-  пройдёт ревизию под command lists / PSO / дескрипторы. Этапы и порядок — в
+  проходит ревизию под command lists / PSO / дескрипторы. Аудит —
+  [RHI_AUDIT.md](./RHI_AUDIT.md), дизайн целевого RHI —
+  [RHI_DESIGN.md](./RHI_DESIGN.md), этапы и порядок — в
   [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md#-дорожная-карта).
 - Реализовано (по README, сверять с кодом при работе): декали, террейн с
   тесселяцией и displacement, atmosphere scattering, стохастическая

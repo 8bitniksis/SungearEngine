@@ -12,6 +12,7 @@
 | **SKILLS.md** | Каталог скиллов агента: какой брать под задачу, как дорабатывать и заводить новые | [📄](./SKILLS.md) |
 | **IMPLEMENTATION_PLAN.md** | План реализации и текущий статус проекта | [📄](./IMPLEMENTATION_PLAN.md) |
 | **RHI_AUDIT.md** | Аудит Graphics/API перед переходом на Vulkan/DX12 (артефакт задачи 1.1) | [📄](./RHI_AUDIT.md) |
+| **RHI_DESIGN.md** | Дизайн целевого RHI: IDevice, command lists, PSO, дескрипторы (артефакт задачи 1.2) | [📄](./RHI_DESIGN.md) |
 
 ---
 

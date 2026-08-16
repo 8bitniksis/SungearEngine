@@ -28,12 +28,40 @@
 | CMake | 3.22+ | да | система сборки |
 | Компилятор C++23 | MSVC 2022 / Clang / GCC | да | стандарт задан жёстко (`CMAKE_CXX_STANDARD 23`) |
 | Git | любая | да | репозиторий + сабмодули (vcpkg, msdf-atlas-gen) |
+| Java **JDK** (не только JRE) | 8+, проверено с Temurin 21 | да | Две причины: (1) корневой CMake делает `find_package(JNI REQUIRED)` — нужны заголовки `jni.h`, `JAVA_HOME` должен указывать на JDK; (2) `Sources/SGCore/CMakeLists.txt` генерирует CSS-парсер командой `java -jar Externals/antlr4/antlr-4.13.1-complete.jar` — нужен `java` в PATH |
+| Python | 3.x | да | требуется vcpkg-портами (skia и др.) при сборке зависимостей |
+| Ninja | любая | рекомендуется | генератор для пресетов; входит в workload C++ Visual Studio |
 | Диск | десятки ГБ | да | vcpkg собирает ~30 зависимостей из исходников (в т.ч. skia и boost) |
 | Android NDK | — | только для Android | пресет `arm64-android` |
 
 Первая сборка зависимостей vcpkg — **долгая** (часы на слабой машине из-за
 skia/boost/assimp). Это разовая цена: результат кешируется в
 `vcpkg/vcpkg_installed/`.
+
+### Установка инструментов одной командой
+
+**Windows** (PowerShell, winget):
+
+```powershell
+winget install Microsoft.VisualStudio.2022.Community --override "--add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --passive"
+winget install EclipseAdoptium.Temurin.21.JDK
+winget install Python.Python.3.12
+winget install Git.Git
+```
+
+Workload `NativeDesktop` включает MSVC (C++23), Windows SDK, CMake и Ninja.
+
+**Linux** (Debian/Ubuntu):
+
+```bash
+sudo apt install build-essential g++-13 cmake ninja-build git curl zip unzip tar pkg-config \
+     python3 default-jdk \
+     libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
+     libasound2-dev libpulse-dev autoconf automake libtool
+```
+
+`g++-13`+ или `clang-17`+ (нужен C++23); `default-jdk` закрывает Java и JNI;
+X11/GL/ALSA-dev — системные требования glfw3 и openal-soft из vcpkg.
 
 ---
 
@@ -163,6 +191,26 @@ cmake --build cmake-build-debug-x64-windows-static-md --target SGCore
 
 На Windows не забыть про `SGCore.dll` рядом с exe (§6).
 
+### Выбор графического API
+
+Бэкенд выбирается на старте по списку предпочтения (`GAPISelector`,
+см. [RHI_DESIGN.md](./RHI_DESIGN.md#командные-списки-и-кадр)); недоступные
+в этой сборке пропускаются с записью в лог. Принудительно задать бэкенд —
+переменной окружения `SG_GAPI` (для диагностики драйверных проблем):
+
+```powershell
+$env:SG_GAPI = 'gl4'      # Windows, текущая сессия
+```
+
+```bash
+SG_GAPI=gl46 ./SungearEngine   # Linux
+```
+
+Допустимые значения: `gl4`, `gl46`, `gles2`, `gles3`, `vulkan`, `dx12`.
+Реально доступны на 2026-08-16: `gl4`, `gl46`; остальные появятся по
+этапам плана. Если принудительный бэкенд недоступен, движок откатывается
+к списку предпочтения и пишет предупреждение в лог.
+
 ---
 
 ## 9. Тесты
@@ -186,6 +234,8 @@ GTest заявлен в `vcpkg.json`, но в `Tests/Coro/CMakeLists.txt` зак
 |---|---|---|
 | CMake не находит toolchain / `CMAKE_TOOLCHAIN_FILE` пустой | Не задана `SUNGEAR_SOURCES_ROOT` или IDE её не видит | §4: задать переменную, перезапустить IDE/ПК |
 | Конфигурация падает на пустом `vcpkg/` или `Externals/msdf-atlas-gen/` | Не инициализированы сабмодули | `git submodule update --init --recursive` |
+| Сборка SGCore падает на шаге «Generating ANTLR4 parser and lexer» (`java: command not found`) | Нет Java в PATH | Установить JRE 8+ и перезапустить IDE (§1) |
+| В логе `No graphics API from the preference list is available` | Ни один бэкенд не создался (напр. `SG_GAPI` указывает на нереализованный, а список предпочтения пуст) | Снять `SG_GAPI` или указать `gl4`; см. §8 |
 | exe мгновенно завершается / «не найдена SGCore.dll» | DLL не скопирована к исполняемому файлу | §6: скопировать `SGCore.dll` вручную |
 | Плагин редактора не загружается | Ядро и редактор собраны разными пресетами | Пересобрать оба одним пресетом |
 | Первая конфигурация «висит» часами | vcpkg собирает skia/boost/assimp из исходников | Это норма для первого раза; кеш в `vcpkg/vcpkg_installed/` |

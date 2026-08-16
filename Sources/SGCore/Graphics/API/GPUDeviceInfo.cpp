@@ -27,7 +27,8 @@ glm::ivec2 SGCore::GPUDeviceInfo::getMaxTextureSize() noexcept
         {
             return { DeviceGLInfo::getMaxTextureSize(), DeviceGLInfo::getMaxTextureSize() };
         }
-        case SG_API_TYPE_VULKAN: break;
+        case SG_API_TYPE_VULKAN:
+        case SG_API_TYPE_DX12: break;
     }
 
     return { };
@@ -54,7 +55,8 @@ std::int32_t SGCore::GPUDeviceInfo::getMaxTextureBufferSize() noexcept
         {
             return DeviceGLInfo::getMaxTextureBufferSize();
         }
-        case SG_API_TYPE_VULKAN: break;
+        case SG_API_TYPE_VULKAN:
+        case SG_API_TYPE_DX12: break;
     }
 
     return { };
@@ -81,7 +83,8 @@ std::int32_t SGCore::GPUDeviceInfo::getMaxVertexAttribsCount() noexcept
         {
             return DeviceGLInfo::getMaxVertexAttribsCount();
         }
-        case SG_API_TYPE_VULKAN: break;
+        case SG_API_TYPE_VULKAN:
+        case SG_API_TYPE_DX12: break;
     }
 
     return { };

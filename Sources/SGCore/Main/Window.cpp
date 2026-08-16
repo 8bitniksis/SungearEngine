@@ -31,7 +31,7 @@ void SGCore::Window::create()
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     // OpenGL is the default API for GLFW, so it's not here
-    if(CoreMain::getRenderer()->getGAPIType() == GAPIType::SG_API_TYPE_VULKAN)
+    if(isExplicitAPI(CoreMain::getRenderer()->getGAPIType()))
     {
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     }
@@ -199,8 +199,7 @@ void SGCore::Window::makeCurrent() noexcept
 {
     Input::PC::setupInput(*this);
 
-    GAPIType apiType = CoreMain::getRenderer()->getGAPIType();
-    if(apiType >= GAPIType::SG_API_TYPE_GL4 && apiType <= GAPIType::SG_API_TYPE_GLES3)
+    if(isOpenGLAPI(CoreMain::getRenderer()->getGAPIType()))
     {
 #if SG_PLATFORM_PC
         glfwMakeContextCurrent(m_handle);
@@ -268,8 +267,7 @@ void SGCore::Window::setSwapInterval(const bool& swapInterval) noexcept
 {
     m_config.m_swapInterval = swapInterval;
 
-    GAPIType apiType = CoreMain::getRenderer()->getGAPIType();
-    if(apiType >= GAPIType::SG_API_TYPE_GL4 && apiType <= GAPIType::SG_API_TYPE_GLES3)
+    if(isOpenGLAPI(CoreMain::getRenderer()->getGAPIType()))
     {
 #if SG_PLATFORM_PC
         glfwSwapInterval(swapInterval);

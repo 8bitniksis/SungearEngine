@@ -126,7 +126,8 @@ Vulkan и DX12, не ломая существующие GL-бэкенды; ед
 |--------|------|-------|--------|
 | 1.1 Аудит `Graphics/API`: перечень GL-измов (VAO, глобальный RenderState, поимённые юниформы) и мест, где рендер-код обходит абстракцию → [RHI_AUDIT.md](./RHI_AUDIT.md) | @Senior Graphics Engineer | M | ✅ 2026-08-16 |
 | 1.2 Спроектировать целевой RHI: command lists, PSO, дескрипторы/binding model, явные барьеры → [RHI_DESIGN.md](./RHI_DESIGN.md) | @Senior Graphics Engineer | L | 🟡 на утверждении |
-| 1.3 Расширить `GAPIType` (`SG_API_TYPE_VULKAN`, `SG_API_TYPE_DX12`) и выбор бэкенда в `Main/Window`/`CoreMain` | @Senior C++ Engine Developer | S | ⬜ |
+| 1.3 Расширить `GAPIType` (`SG_API_TYPE_DX12`, хелперы `isOpenGLAPI`/`isExplicitAPI`), `GAPISelector` — список предпочтения, `SG_GAPI`, откат по доступности; хардкод в `CoreMain` заменён | @Senior C++ Engine Developer | S | 🟡 код готов, **сборка не проверена** (нет компилятора на машине автора) |
+| 1.3a Рантайм-откат с пересозданием окна: если `confirmSupport()`/инициализация бэкенда провалилась после создания окна — уничтожить окно и перейти к следующему кандидату (сейчас GL-бэкенд при провале закрывает окно). Нужен, когда появится Vulkan-инициализация, которая может упасть | @Senior C++ Engine Developer | M | ⬜ (делать в 2.2) |
 | 1.4 Шейдерный пайплайн: свой GLSL-add-on → SPIR-V (shaderc/glslang), рефлексия (SPIRV-Reflect/Cross); решение по трансляции в DXIL для DX12 | @Senior Graphics Engineer | L | ⬜ |
 | 1.5 Мигрировать GL46-бэкенд на новый RHI (эталонная реализация, ничего не должно visually сломаться) | @Senior Graphics Engineer | L | ⬜ |
 | 1.6 Тестовая сцена-«смоук» в `Tests/` для сравнения бэкендов (один кадр, все фичи: PBR, тени, прозрачность) | @Senior C++ Engine Developer | M | ⬜ |

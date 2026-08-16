@@ -262,6 +262,12 @@ description: >-
   `glNamedFramebufferDrawBuffers`, viewport: явный размер → поля `m_viewport*` фреймбуфера → окно.
   Все GL46-фреймбуферы движка (в т.ч. `LayeredFrameReceiver`) теперь такие; `IFrameBuffer` без
   RHI (GL4) — legacy.
+- **Текстуры: юнит-модель проходов оставлена** (решение 2026-08-17). Три паттерна:
+  `useTextureBlock(name, unit)` + `texture->bind(unit)`; + `frameBuffer->bindAttachment(type, unit)`;
+  + TBO (`u_bonesMatricesUniformBuffer`). Юниты чейнятся через offset'ы хелперов `IShader`
+  (`bindMaterialTextures`/`bindTextures`/`bindTextureBindings` возвращают следующий offset).
+  **Не смешивать** юнит-модель с биндингом по рефлексии в одном шейдере — юниты столкнутся.
+  Для Vulkan — фасад с таблицей юнитов (RHI_DESIGN), не правка проходов.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 

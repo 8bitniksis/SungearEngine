@@ -416,8 +416,16 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
   в `beginRenderPass`/`clear*`/`endRenderPass`; `ICommandList` получил `clearColorAttachment`/
   `clearDepthStencil` (mid-pass clear — `vkCmdClearAttachments`/`Clear*View`). Смена draw
   buffers под биндом = re-begin прохода с LOAD ops. Итог: на GL46 через RHI идут шейдеры,
-  буферы, PSO, draw, render targets и вывод на экран; вне RHI остаются только биндинг
-  текстур (`texture->bind(unit)`) и сам legacy-интерфейс `IShader`.
+  буферы, PSO, draw, render targets и вывод на экран.
+- **Текстуры (шаг 6) — решение без правки проходов.** Проходы работают в юнит-модели:
+  `useTextureBlock(name, unit)` + `texture->bind(unit)` / `frameBuffer->bindAttachment(type, unit)`,
+  юниты чейнятся через offset'ы (`bindMaterialTextures` → `bindTextureBindings` → CSM…);
+  22 места в 16 файлах. Массовая замена на «биндинг по рефлексии» отложена: на GL46 юнит-модель
+  нативна и эквивалентна дескрипторному набору, а для explicit-бэкендов её транслирует **фасад с
+  таблицей юнитов**: `useTextureBlock(name, U)` = «сэмплер name читает юнит U», `bind(U)` = «юнит U =
+  текстура T»; на draw'е фасад собирает `IDescriptorSet` по рефлексии — биндинг сэмплера name ←
+  текстура юнита U. Реализуется в Vulkan-бэкенде (этап 2), проходы не меняются. Прямой
+  `IShader::bindTexture(name, texture, index)` по рефлексии — цель после стабилизации Vulkan.
 - Правило миграции прохода: legacy-реализация остаётся как откат (`GL46Renderer`
   падает на неё, если RHI-проход не инициализировался), проход считается
   перенесённым только при 0 % расхождений смоука на GL46.

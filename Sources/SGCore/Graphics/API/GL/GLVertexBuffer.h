@@ -49,6 +49,8 @@ namespace SGCore
 
         void useAttributes() const noexcept final;
 
+        [[nodiscard]] std::uintptr_t getNativeHandle() const noexcept final { return m_handler; }
+
     protected:
         void subDataOnGAPISide(const void* data, const size_t& bytesCount, const size_t& bytesOffset, bool isPutData) noexcept override;
 

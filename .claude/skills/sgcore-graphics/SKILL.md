@@ -247,8 +247,13 @@ description: >-
   `GL46Shader::bind()` регистрирует себя в `GL46Renderer::setCurrentLegacyShader`, а
   `renderMeshData` строит PSO из `shader->getRHIProgram()` (`GL46LegacyProgram`, не владеет
   хендлом) + `m_cachedRenderState` + `meshRenderState` + `m_rhi.m_vertexInput`. Слот 0 — `Vertex`
-  (stride `sizeof(Vertex)`), слоты 1.. — наборы цветов. Мешей без привязанного `GL46Shader`
+  (stride `sizeof(Vertex)`), слоты 1.. — наборы цветов. Меши без привязанного `GL46Shader`
   (или на GL4) рисуются legacy VAO-путём.
+- **Legacy vertex arrays через RHI** (шаг 4): `renderArray`/`renderArrayInstanced` оборачивают
+  буферы `IVertexArray` не владеющими `GL46GPUBuffer` (`getNativeHandle()` у `IVertexBuffer`/
+  `IIndexBuffer`; кеш `m_wrappedBuffers` по хендлу), слоты — по буферам, отсортированным по хендлу
+  (стабильный ключ кеша PSO), `perInstance` — если у атрибута divisor > 0. Данные динамических
+  буферов (subData) остаются в тех же GL-объектах — обёртка это не ломает.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 

@@ -8,6 +8,12 @@
 #include "SGCore/Graphics/RHI/ScreenBlit.h"
 #include "SGCore/Graphics/RHI/ICommandList.h"
 #include "SGCore/ImportedScenesArch/IMeshData.h"
+#include "SGCore/Graphics/API/IVertexArray.h"
+#include "SGCore/Graphics/API/IVertexBuffer.h"
+#include "SGCore/Graphics/API/IIndexBuffer.h"
+#include "RHI/GL46GPUBuffer.h"
+
+#include <algorithm>
 
 SGCore::GL46Renderer::~GL46Renderer() = default;
 
@@ -211,4 +217,99 @@ void SGCore::GL46Renderer::renderMeshData(const IMeshData* meshData, const MeshR
     }
     m_meshCommandList->end();
     m_device->submit(m_meshCommandList);
+}
+
+bool SGCore::GL46Renderer::drawLegacyArrayThroughRHI(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                                     int verticesCount, int indicesCount, int instancesCount) noexcept
+{
+    Ref<IShaderProgram> program = m_currentLegacyShader ? m_currentLegacyShader->getRHIProgram() : nullptr;
+    if(!m_device || !program || !vertexArray) return false;
+
+    // deterministic buffer order → stable slot numbers → stable pipeline cache key
+    std::vector<IVertexBuffer*> buffers(vertexArray->getVertexBuffers().begin(), vertexArray->getVertexBuffers().end());
+    std::sort(buffers.begin(), buffers.end(), [](const IVertexBuffer* a, const IVertexBuffer* b) {
+        return a->getNativeHandle() < b->getNativeHandle();
+    });
+    if(buffers.empty()) return false;
+
+    auto wrap = [this](std::uintptr_t handle, std::uint64_t size, const char* name) -> Ref<IGPUBuffer>
+    {
+        auto it = m_wrappedBuffers.find(handle);
+        if(it != m_wrappedBuffers.end()) return it->second;
+        auto wrapped = MakeRef<GL46GPUBuffer>(static_cast<GLuint>(handle), size, name);
+        m_wrappedBuffers.emplace(handle, wrapped);
+        return wrapped;
+    };
+
+    VertexInputDesc vertexInput;
+    std::vector<Ref<IGPUBuffer>> slotBuffers;
+    for(std::size_t slot = 0; slot < buffers.size(); ++slot)
+    {
+        const auto* buffer = buffers[slot];
+        if(buffer->getNativeHandle() == 0 || buffer->getAttributes().empty()) return false;
+
+        std::uint32_t stride = 0;
+        bool perInstance = false;
+        for(const auto& attribute : buffer->getAttributes())
+        {
+            stride = static_cast<std::uint32_t>(attribute.m_stride);
+            perInstance = perInstance || attribute.m_divisor > 0;
+            vertexInput.m_attributes.push_back({ attribute.m_location, static_cast<std::uint32_t>(slot), attribute.m_dataType,
+                                                 static_cast<std::uint32_t>(attribute.m_scalarsCount),
+                                                 static_cast<std::uint32_t>(attribute.m_offsetInStruct),
+                                                 attribute.m_isNormalized });
+        }
+        vertexInput.m_slots.push_back({ static_cast<std::uint32_t>(slot), stride, perInstance });
+        slotBuffers.push_back(wrap(buffer->getNativeHandle(), buffer->getData().size(), "legacy_vbo"));
+    }
+
+    Ref<IGPUBuffer> indexBuffer;
+    if(meshRenderState.m_useIndices)
+    {
+        const auto* indices = vertexArray->getIndexBuffer();
+        if(!indices || indices->getNativeHandle() == 0) return false;
+        indexBuffer = wrap(indices->getNativeHandle(), std::uint64_t(indicesCount) * sizeof(std::uint32_t), "legacy_ibo");
+    }
+
+    PipelineStateDesc pipelineDesc;
+    pipelineDesc.m_program = program;
+    pipelineDesc.m_renderState = m_cachedRenderState;
+    pipelineDesc.m_blendingState = m_cachedRenderState.m_globalBlendingState;
+    pipelineDesc.m_meshRenderState = meshRenderState;
+    pipelineDesc.m_vertexInput = std::move(vertexInput);
+    auto pipeline = m_device->getOrCreatePipeline(pipelineDesc);
+
+    if(!m_meshCommandList) m_meshCommandList = m_device->createCommandList();
+    m_meshCommandList->begin();
+    m_meshCommandList->bindPipeline(pipeline);
+    for(std::size_t slot = 0; slot < slotBuffers.size(); ++slot)
+    {
+        m_meshCommandList->bindVertexBuffer(static_cast<std::uint32_t>(slot), slotBuffers[slot]);
+    }
+    if(indexBuffer)
+    {
+        m_meshCommandList->bindIndexBuffer(indexBuffer, SGIndexType::SGG_UINT32);
+        m_meshCommandList->drawIndexed(static_cast<std::uint32_t>(indicesCount), static_cast<std::uint32_t>(instancesCount));
+    }
+    else
+    {
+        m_meshCommandList->draw(static_cast<std::uint32_t>(verticesCount), static_cast<std::uint32_t>(instancesCount));
+    }
+    m_meshCommandList->end();
+    m_device->submit(m_meshCommandList);
+    return true;
+}
+
+void SGCore::GL46Renderer::renderArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                       const int& verticesCount, const int& indicesCount)
+{
+    if(drawLegacyArrayThroughRHI(vertexArray, meshRenderState, verticesCount, indicesCount, 1)) return;
+    GL4Renderer::renderArray(vertexArray, meshRenderState, verticesCount, indicesCount);
+}
+
+void SGCore::GL46Renderer::renderArrayInstanced(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                                const int& verticesCount, const int& indicesCount, const int& instancesCount)
+{
+    if(drawLegacyArrayThroughRHI(vertexArray, meshRenderState, verticesCount, indicesCount, instancesCount)) return;
+    GL4Renderer::renderArrayInstanced(vertexArray, meshRenderState, verticesCount, indicesCount, instancesCount);
 }

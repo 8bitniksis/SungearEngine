@@ -15,6 +15,7 @@
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
 
 #include <memory>
+#include <unordered_map>
 
 namespace SGCore
 {
@@ -23,6 +24,7 @@ namespace SGCore
     class ScreenBlit;
     class ICommandList;
     class IMeshData;
+    class IGPUBuffer;
 
     /**
      * OpenGL 4.6 backend: the GL4 implementation running on a 4.6 core context with
@@ -54,6 +56,14 @@ namespace SGCore
         /// the legacy VAO path when no legacy shader is bound or the mirror can not be built.
         void renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState) override;
 
+        /// Legacy vertex arrays through the RHI: the array's buffers are wrapped (non-owning) as
+        /// IGPUBuffers and the PSO vertex layout comes from their recorded attributes — dynamic
+        /// buffers (debug lines, text, batching) keep updating in place. Falls back like renderMeshData.
+        void renderArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                         const int& verticesCount, const int& indicesCount) override;
+        void renderArrayInstanced(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                  const int& verticesCount, const int& indicesCount, const int& instancesCount) override;
+
         /// Called by GL46Shader::bind(): the shader whose program the next RHI draw uses.
         void setCurrentLegacyShader(GL46Shader* shader) noexcept { m_currentLegacyShader = shader; }
 
@@ -67,6 +77,11 @@ namespace SGCore
         Ref<ICommandList> m_meshCommandList;
 
         [[nodiscard]] bool prepareMeshRHI(IMeshData& meshData) noexcept;
+        /// Shared body of renderArray / renderArrayInstanced; returns false when the legacy path must run.
+        [[nodiscard]] bool drawLegacyArrayThroughRHI(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                                     int verticesCount, int indicesCount, int instancesCount) noexcept;
+        /// Non-owning RHI wrappers of legacy GL buffers, keyed by GL name.
+        std::unordered_map<std::uintptr_t, Ref<IGPUBuffer>> m_wrappedBuffers;
 
         GL46Renderer() noexcept = default;
     };

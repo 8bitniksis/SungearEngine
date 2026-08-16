@@ -16,6 +16,9 @@ namespace SGCore
     {
     public:
         explicit GL46GPUBuffer(const GPUBufferDesc& desc) noexcept;
+        /// Non-owning wrapper of an existing GL buffer (legacy IVertexBuffer / IIndexBuffer) so that
+        /// legacy geometry can be bound through the RHI during the migration.
+        GL46GPUBuffer(GLuint adoptedHandle, std::uint64_t size, std::string debugName) noexcept;
         ~GL46GPUBuffer() override;
 
         [[nodiscard]] void* map(std::uint64_t offset, std::uint64_t size) noexcept override;
@@ -27,5 +30,6 @@ namespace SGCore
     private:
         GLuint m_handle { };
         bool m_mapped { };
+        bool m_owned = true;
     };
 }

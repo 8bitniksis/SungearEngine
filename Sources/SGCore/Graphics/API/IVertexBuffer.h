@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <sgcore_export.h>
 
 #include "GraphicsDataTypes.h"
@@ -97,6 +98,9 @@ namespace SGCore
                           std::uint64_t offsetInStruct) noexcept;
 
         virtual void useAttributes() const noexcept = 0;
+
+        /// Backend object handle (GL: buffer name), for wrapping legacy buffers into RHI objects.
+        [[nodiscard]] virtual std::uintptr_t getNativeHandle() const noexcept { return 0; }
 
         const std::vector<std::uint8_t>& getData() const noexcept;
         [[nodiscard]] const std::vector<AttributeDesc>& getAttributes() const noexcept { return m_attributesDescs; }

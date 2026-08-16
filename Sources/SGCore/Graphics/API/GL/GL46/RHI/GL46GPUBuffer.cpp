@@ -29,7 +29,7 @@ SGCore::GL46GPUBuffer::GL46GPUBuffer(const GPUBufferDesc& desc) noexcept
 SGCore::GL46GPUBuffer::~GL46GPUBuffer()
 {
     if(m_mapped) glUnmapNamedBuffer(m_handle);
-    glDeleteBuffers(1, &m_handle);
+    if(m_owned) glDeleteBuffers(1, &m_handle);
 }
 
 void* SGCore::GL46GPUBuffer::map(std::uint64_t offset, std::uint64_t size) noexcept
@@ -63,4 +63,14 @@ bool SGCore::GL46GPUBuffer::write(const void* data, std::uint64_t size, std::uin
     }
     glNamedBufferSubData(m_handle, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
     return true;
+}
+
+SGCore::GL46GPUBuffer::GL46GPUBuffer(GLuint adoptedHandle, std::uint64_t size, std::string debugName) noexcept
+{
+    m_handle = adoptedHandle;
+    m_owned = false;
+    m_desc.m_size = size;
+    m_desc.m_access = GPUMemoryAccess::SGG_DEVICE_LOCAL;
+    m_desc.m_debugName = std::move(debugName);
+    m_debugName = m_desc.m_debugName;
 }

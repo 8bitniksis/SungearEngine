@@ -150,6 +150,25 @@ description: >-
 - Include-корень: `SGSLETranslator::includeDirectory(<root>/Resources)`; общие файлы —
   `sg_shaders/impl/glsl4/{defines,structs_decl,uniform_bufs_decl}.glsl`.
 - Runtime-перекомпиляция: `IShader::m_autoRecompile`.
+- Каждый `.sgshader` обёрнут в guard варианта `#if defined(SG_GLSL4) || defined(SG_GLES32)`
+  (ветка `SG_HLSL` — `#error`), внутри — `#include` реализации из `impl/glsl4/`.
+  SGSL-препроцессор разворачивает `#include` **не глядя на `#if`** — условия
+  остаются в тексте для GLSL-компилятора.
+- `SGSLETranslator::processCode` работает без окна/GPU (инклуды через `AssetManager`
+  как `TextFileAsset`), но **всегда** пишет дамп в `SGSLETranslatorOutputDebug/` и
+  `logs/` в текущий каталог (флаг `m_useOutputDebug` не проверяется) — запускать
+  инструменты из build-dir.
+- **Вулканизация** (`Utils/SGSL/SGSLEVulkanizer`, 2026-08-17): переводит стадии
+  программы в Vulkan-GLSL — свободные юниформы → один std140-блок
+  `SGLegacyUniforms` (члены видны под старыми именами, код не трогается),
+  `set/binding` сэмплерам/UBO/TBO (явные сохраняются), `#if`-условия членов
+  сохраняются с вырезанным общим guard'ом файла, `gl_FragColor`→`sgFragColor` +
+  `out`, `gl_VertexID`→`gl_VertexIndex`. Обрабатывать **всю программу разом** —
+  биндинги должны совпасть между стадиями. Дефайны приписывать до вулканизации.
+  Массивы сэмплеров с макро-размером (`[SG_SPOT_LIGHTS_MAX_COUNT]`) дают
+  предупреждение и count = 1 — брать из рефлексии. Тест: `Tests/Shaders`.
+- `features/pbr/instancing.sgshader` — мёртвый: инклудит несуществующий
+  `impl/glsl4/pbr/instancing.glsl` (0 стадий при трансляции).
 
 ## Смоук-тест
 

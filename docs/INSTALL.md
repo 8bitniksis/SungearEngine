@@ -222,6 +222,23 @@ cmake --build <binary-dir> --target SGCoroTest
 <binary-dir>/Tests/Coro/SGCoroTest
 ```
 
+### Шейдерный пайплайн (`SGShadersTest`)
+
+Юнит-проверки прохода вулканизации SGSL (`SGSLEVulkanizer`) на встроенных
+снипетах, плюс прогон по всему корпусу `Resources/sg_shaders/**/*.sgshader`
+с дампом Vulkan-GLSL для просмотра. Окно и GPU не нужны:
+
+```bash
+cmake --build <binary-dir> --target SGShadersTest
+cd <binary-dir>/Tests/Shaders          # рядом должна лежать SGCore.dll (§6)
+SGShadersTest                                          # только юнит-проверки
+SGShadersTest --corpus E:/Github/SungearEngine --out vulkanized   # + корпус
+```
+
+Код выхода `0` — юнит-проверки прошли (и корпус обработан). Транслятор
+пишет отладочный дамп `SGSLETranslatorOutputDebug/` и `logs/` в текущий
+каталог — запускать из build-dir, не из корня репозитория.
+
 ### Смоук-сцена рендера (`SGSmokeTest`)
 
 Эталонная сцена для сравнения графических бэкендов: PBR-тела, CSM-тени,

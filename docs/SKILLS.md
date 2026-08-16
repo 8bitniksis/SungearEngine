@@ -48,6 +48,7 @@
 | Скилл | Про что | Брать, когда в задаче |
 |-------|---------|------------------------|
 | [cpp-style](../.claude/skills/cpp-style/SKILL.md) | Соглашение о кодировании Pixelfield ([CodingConvention.md](../CodingConvention.md)) под наш стек: именование файлов/типов/переменных (UpperCamelCase, `m_`/`s_`, lower_snake_case для constexpr/using), пробелы и скобки, порядок членов структуры, инклуды `<>` vs `""`, запрет `using namespace`, смарт-поинтеры, C++23. Отдельным разделом — специфика SGCore: экспорт, платформенные макросы, ECS-стиль | любой C++/заголовки: модули SGCore, SGEntry, плагины редактора, тесты |
+| [sgcore-graphics](../.claude/skills/sgcore-graphics/SKILL.md) | Проверенные факты и грабли графического слоя SGCore: форматы attachment'ов и readback (не предполагать RGBA8), глобальные `SGG*`-enum'ы и кастеры, `GAPISelector`/`SG_GAPI`, состояние бэкендов (GL4 рабочий, GL46 сломан, Vulkan — скелет), компоненты рендера (`Controllable3D` перезаписывает поворот, размер фреймбуфера = монитор), тени только от `Batch`, корпус SGSL-шейдеров и его Vulkan-несовместимости, смоук-тест, мелкие грабли API (`IMaterial` protected-поля, `AssetManager`, логгер) | любая задача в `Graphics/`, `Render/`, `Resources/sg_shaders`, `Tests/Smoke`, переход на Vulkan/DX12 (RHI), скриншоты/readback, выбор бэкенда |
 
 Скиллы среды (`code-review`, `simplify`, `run`, `update-config`, …)
 в каталог не вносим — они приходят из окружения, а не из репозитория, и их
@@ -119,7 +120,14 @@
 - **ecs-patterns** — обвязка EnTT в SGCore: `Registry`, визиторы, пулы,
   singleton-компоненты, как подсистемы итерируют компоненты.
 - **render-pipeline** — устройство PBRRP, добавление проходов, работа с
-  шейдерами из `Resources/`.
+  шейдерами из `Resources/`. Частично закрыт `sgcore-graphics`; выделять,
+  когда накопится материал по самим проходам.
+
+Урок 2026-08-16, из-за которого заведён `sgcore-graphics`: первая версия
+readback'а предполагала RGBA8 у любого attachment'а — Ilya указал, что у
+attachment'ов свой `m_format`/`m_dataType`. Факт лежал в коде (`ITexture2D.h`),
+но не был записан там, где агент смотрит **до** кода. Проверенный факт о
+подсистеме → в скилл сразу, тем же изменением.
 
 ---
 
@@ -146,4 +154,4 @@ description: >-
 
 ---
 
-*Последнее обновление: 2026-08-16 (заведён `cpp-style`)*
+*Последнее обновление: 2026-08-17 (заведён `sgcore-graphics`; `cpp-style` — 2026-08-16)*

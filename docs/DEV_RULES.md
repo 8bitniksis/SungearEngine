@@ -265,6 +265,7 @@ Closes #123
 | Скилл | Брать, когда |
 |-------|--------------|
 | [`cpp-style`](../.claude/skills/cpp-style/SKILL.md) | любой C++ в `Sources/`, `Plugins/`, `Tests/` |
+| [`sgcore-graphics`](../.claude/skills/sgcore-graphics/SKILL.md) | графический слой: `Graphics/`, `Render/`, шейдеры, readback, бэкенды, RHI |
 
 Скилл оказался неполон или неверен — **дополнить его самостоятельно**
 (только добавлением, существующие разделы не переписываются) и сказать об этом

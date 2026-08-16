@@ -47,7 +47,7 @@
 
 ### Скиллы агента
 - **Каталог**: [SKILLS.md](./SKILLS.md)
-- **Файлы**: `/.claude/skills/cpp-style/`
+- **Файлы**: `/.claude/skills/cpp-style/`, `/.claude/skills/sgcore-graphics/`
 
 ---
 

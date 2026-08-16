@@ -87,7 +87,10 @@ graph TD
 | `DynamicLibrary` | Кроссплатформенная обёртка над dll/so |
 | `PluginProject`, `PluginWrap` | Описание проекта плагина и обёртка загруженного экземпляра |
 
-Ключевое решение: **редактор — это плагин**, а не отдельная сборка движка.
+Ключевое решение (текущее): **редактор — это плагин**, а не отдельная сборка
+движка. 🎯 Целевое состояние другое: редактор выносится за явную C-ABI границу
+поверх ядра, UI — на WPF (этапы 4–5 в
+[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md#-план-работ-по-этапам)).
 `SGEntry` при старте загружает плагин редактора; игра без редактора использует
 то же ядро. Плагины — отдельные CMake-проекты, линкуемые с движком через
 `cmake/SungearEngineInclude.cmake` (путь берётся из `SUNGEAR_SOURCES_ROOT`),
@@ -102,8 +105,16 @@ graph TD
 
 - **Forward PBR** на Cook-Torrance BRDF (`Render/PBRRP/PBRRenderPipeline.h`);
   пайплайны сменные — управляются `RenderPipelinesManager`.
-- Графические API: **OpenGL 4.6** (ПК) / **GLES 3.2** (Android) через glad;
-  абстракция API — в `Graphics/`.
+- Графические API: **OpenGL 4.6** (ПК) / **GLES 3.2** (Android) через glad.
+- **Абстракция API** — `Graphics/API/`: интерфейсы `IRenderer`, `IShader`,
+  `ITexture2D`, `IFrameBuffer`, `IVertexArray` и др.; бэкенд выбирается через
+  `GAPIType` (GL4, GL46, GLES2/3, VULKAN). Каталог `Graphics/API/Vulkan/` —
+  нерабочий скелет 2023 г. (зависимости vulkan в `vcpkg.json` нет).
+- 🎯 **Целевое направление** (утверждено 2026-08-16): основными API становятся
+  **Vulkan** (Windows/Linux/Android) и **DirectX 12** (Windows); текущая
+  абстракция скроена под GL (VAO, глобальный `RenderState`) и перед этим
+  пройдёт ревизию под command lists / PSO / дескрипторы. Этапы и порядок — в
+  [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md#-дорожная-карта).
 - Реализовано (по README, сверять с кодом при работе): декали, террейн с
   тесселяцией и displacement, atmosphere scattering, стохастическая
   прозрачность, объёмный постпроцессинг, пикинг сущностей, дебаг-рендер,

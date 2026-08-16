@@ -437,3 +437,27 @@ glm::vec3 SGCore::GL4FrameBuffer::readPixelsFromAttachment(const glm::vec2& mous
     return { pixel[0], pixel[1], pixel[2] };
 }
 
+
+bool SGCore::GL4FrameBuffer::readAttachmentPixels(SGFrameBufferAttachmentType attachmentType,
+                                                  std::vector<std::uint8_t>& outRGBA8) const noexcept
+{
+    if(!isColorAttachment(attachmentType) || !hasAttachment(attachmentType) || m_width <= 0 || m_height <= 0)
+    {
+        return false;
+    }
+
+    outRGBA8.resize(static_cast<std::size_t>(m_width) * m_height * 4);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_handler);
+    glReadBuffer(GL_COLOR_ATTACHMENT0 + (std::to_underlying(attachmentType) -
+                                         std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0)));
+
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, outRGBA8.data());
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+    glReadBuffer(GL_NONE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return true;
+}

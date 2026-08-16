@@ -1,0 +1,54 @@
+//
+// Created by 8bitniksis on 16.08.2026.
+//
+
+#pragma once
+
+#include <cstdint>
+#include <filesystem>
+#include <optional>
+
+#include "SGCore/Main/BasicApp.h"
+
+namespace SGSmoke
+{
+    struct SmokeOptions
+    {
+        /// Frame index at which the frame is captured. Early frames may still be warming up
+        /// (shader compilation, first CSM update), so the default leaves a margin.
+        std::uint32_t m_captureFrame = 60;
+        /// Output PNG. If empty, "smoke_<gapi>.png" in the working directory is used.
+        std::filesystem::path m_outputPath;
+        /// If set, the captured frame is compared against this PNG and the exit code reflects the result.
+        std::optional<std::filesystem::path> m_referencePath;
+        /// Any channel differing by more than this value marks a pixel as different.
+        std::uint8_t m_channelThreshold = 8;
+        /// Test fails if the fraction of differing pixels exceeds this value.
+        double m_maxDifferingPixelsFraction = 0.01;
+    };
+
+    /**
+     * Reference scene for comparing graphics backends: PBR meshes, sun shadows (CSM), atmosphere,
+     * transparent object, SSAO. Renders a fixed number of frames, reads the final camera attachment
+     * back and writes it to PNG; optionally compares with a reference image.
+     */
+    struct SmokeApp : SGCore::BasicApp
+    {
+        explicit SmokeApp(SmokeOptions options) noexcept;
+
+        [[nodiscard]] int getExitCode() const noexcept;
+
+        void onInit() noexcept override;
+        void onUpdate(double dt, double fixedDt) override;
+        void onFixedUpdate(double dt, double fixedDt) override;
+
+    private:
+        SmokeOptions m_options;
+        std::uint32_t m_frameIndex = 0;
+        bool m_captured = false;
+        int m_exitCode = 0;
+
+        void buildScene() noexcept;
+        void captureAndFinish() noexcept;
+    };
+}

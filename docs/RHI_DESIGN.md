@@ -231,8 +231,17 @@ public:
 
     virtual void transition(const Ref<IGPUObject>& resource, GPUResourceState newState) noexcept = 0;
     virtual void uploadData(const Ref<IGPUBuffer>& dst, const void* data, std::uint64_t size, std::uint64_t offset) noexcept = 0;
+
+    // Readback (GPU → CPU): копирование текстуры в host-visible буфер; результат
+    // читается через IGPUBuffer::map() после завершения кадра. Обязателен на всех
+    // бэкендах — на нём держится смоук-тест (Tests/Smoke) и скриншоты редактора.
+    virtual void copyTextureToBuffer(const Ref<ITexture>& src, const Ref<IGPUBuffer>& dst) noexcept = 0;
 };
 ```
+
+До появления RHI роль readback выполняет `IFrameBuffer::readAttachmentPixels()`
+(добавлен для смоук-теста, реализован в GL); при миграции 1.5 он переезжает на
+`copyTextureToBuffer` + `map`.
 
 Кадровый цикл (владелец — `IDevice`/`ISwapchain`, вызывается из главного
 цикла `CoreMain` вместо прямого `glfwSwapBuffers`):

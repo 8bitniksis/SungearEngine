@@ -215,12 +215,33 @@ SG_GAPI=gl46 ./SungearEngine   # Linux
 
 ## 9. Тесты
 
-Единственный тестовый таргет — `SGCoroTest` (`Tests/Coro/`, корутины):
+Тестовые таргеты (`Tests/`, собираются при `SG_BUILD_TESTS`):
 
 ```bash
 cmake --build <binary-dir> --target SGCoroTest
 <binary-dir>/Tests/Coro/SGCoroTest
 ```
+
+### Смоук-сцена рендера (`SGSmokeTest`)
+
+Эталонная сцена для сравнения графических бэкендов: PBR-тела, CSM-тени,
+атмосфера, прозрачный объект, SSAO. Рендерит N кадров, читает кадр обратно
+и пишет PNG; с `--reference` сравнивает и возвращает код выхода.
+
+```bash
+cmake --build <binary-dir> --target SGSmokeTest
+cd <binary-dir>/Tests/Smoke          # рядом должна лежать SGCore.dll (§6)
+
+SGSmokeTest --gapi gl4                          # снять кадр → smoke_gl4.png
+SGSmokeTest --gapi gl46 --reference smoke_gl4.png   # сравнить другой бэкенд с эталоном
+SGSmokeTest --help
+```
+
+Коды выхода: `0` — кадр снят (и совпал с эталоном), `1` — расхождение
+(рядом пишется `*_diff.png`), `2` — снять не удалось. Пороги: `--threshold`
+(разница по каналу, по умолчанию 8/255) и `--max-diff` (доля отличающихся
+пикселей, по умолчанию 1 %). Эталоны обновляются осознанно, при
+намеренном изменении картинки — и коммитятся рядом с тестом.
 
 GTest заявлен в `vcpkg.json`, но в `Tests/Coro/CMakeLists.txt` закомментирован —
 тест сейчас обычный исполняемый файл. Состояние тестирования — в

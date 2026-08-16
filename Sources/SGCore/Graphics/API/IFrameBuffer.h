@@ -5,8 +5,10 @@
 #ifndef SUNGEARENGINE_IFRAMEBUFFER_H
 #define SUNGEARENGINE_IFRAMEBUFFER_H
 
+#include <cstdint>
 #include <set>
 #include <unordered_map>
+#include <vector>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
@@ -93,7 +95,19 @@ namespace SGCore
         int getHeight() const noexcept;
 
         [[nodiscard]] virtual glm::vec3 readPixelsFromAttachment(const glm::vec2& mousePos, SGFrameBufferAttachmentType attachmentType) const noexcept = 0;
-        
+
+        /**
+         * Reads the whole color attachment back to CPU as tightly packed RGBA8, bottom row first
+         * (rows are ordered the way the current graphics API stores them; callers that need
+         * top-down images must flip). Intended for tests and screenshots, not for per-frame use.
+         * @return false if the backend does not support readback or the attachment is not a color attachment.
+         */
+        [[nodiscard]] virtual bool readAttachmentPixels(SGFrameBufferAttachmentType attachmentType,
+                                                        std::vector<std::uint8_t>& outRGBA8) const noexcept
+        {
+            return false;
+        }
+
         const auto& getAttachments() const noexcept
         {
             return m_attachments;

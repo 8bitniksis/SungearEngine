@@ -72,6 +72,7 @@ DirectX** (путь, пройденный Frostbite/Unity), и разделен�
 - [ ] `.clang-format` под CodingConvention.md отсутствует
 - [ ] `copy_sgcore_dlls()` закомментирована — ручное копирование DLL
 - [ ] README расходится с фактическими именами CMake-пресетов
+- [ ] **JDK обязателен для сборки на всех платформах**, хотя JNI используется только под Android: `find_package(JNI REQUIRED)` в корневом CMake и `SungearEngineInclude.cmake`, безусловные `#include <jni.h>` в `ExternalAPI/Java/Main.h` (тянется `Window.h`), `JNIManager.h`, `FileUtils.cpp`; на ПК линкуется `jvm.lib` без надобности. Кандидат: сделать JNI Android-only (S, требует проверки Android-сборки)
 
 ---
 
@@ -130,7 +131,7 @@ Vulkan и DX12, не ломая существующие GL-бэкенды; ед
 | 1.3a Рантайм-откат с пересозданием окна: если `confirmSupport()`/инициализация бэкенда провалилась после создания окна — уничтожить окно и перейти к следующему кандидату (сейчас GL-бэкенд при провале закрывает окно). Нужен, когда появится Vulkan-инициализация, которая может упасть | @Senior C++ Engine Developer | M | ⬜ (делать в 2.2) |
 | 1.4 Шейдерный пайплайн: свой GLSL-add-on → SPIR-V (shaderc/glslang), рефлексия (SPIRV-Reflect/Cross); решение по трансляции в DXIL для DX12 | @Senior Graphics Engineer | L | ⬜ |
 | 1.5 Мигрировать GL46-бэкенд на новый RHI (эталонная реализация, ничего не должно visually сломаться) | @Senior Graphics Engineer | L | ⬜ |
-| 1.6 Тестовая сцена-«смоук» в `Tests/` для сравнения бэкендов (один кадр, все фичи: PBR, тени, прозрачность) | @Senior C++ Engine Developer | M | ⬜ |
+| 1.6 Тестовая сцена-«смоук» `Tests/Smoke` (`SGSmokeTest`): PBR-тела, CSM-тени, атмосфера, прозрачность, SSAO; захват кадра в PNG, сравнение с эталоном (`--reference`, порог/доля), `--gapi` для выбора бэкенда. Для захвата добавлен `IFrameBuffer::readAttachmentPixels()` (GL) | @Senior C++ Engine Developer | M | 🟡 код готов, **не собран/не запускался**; эталоны `smoke_gl4.png` снять после первого запуска |
 
 **Критерии готовности**:
 - [ ] Документ RHI в SYSTEM_DESIGN утверждён командой

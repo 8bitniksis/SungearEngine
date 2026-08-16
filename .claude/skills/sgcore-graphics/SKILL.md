@@ -219,6 +219,21 @@ description: >-
 - Push constants на GL не реализованы (предупреждение) — фасад заменит мини-UBO;
   `transition` — no-op; `destroyDeferred` — просто сброс ссылки; `waitIdle` = `glFinish`.
 - Проверка — `Tests/RHI` (`SGRHITest --gapi gl46`): точные пиксели после readback.
+- **Загрузка шейдера в RHI** — `RHIShaderLoader::load(device, "${enginePath}/…/x.sgshader",
+  defines)`: `ShaderAnalyzedFile` через `AssetManager` → дефайны бэкенда (`SG_GLSL4` /
+  `SG_GLES32` по `DeviceProperties::m_apiType`) + `#attribute` шейдера → вулканизатор
+  под диалект → `createShaderProgram` (для explicit API ещё `SPIRVCompiler`). Обращаться
+  к юниформам **только через рефлексию** (`findBinding`, `findMember`), имена блоков —
+  `SGLegacyUniforms_<stage>`.
+- **Первый RHI-проход — `Graphics/RHI/ScreenBlit`** (вывод текстуры на экран, вместо
+  legacy-квада `IRenderer::renderTextureOnScreen`): `GL46Renderer` переопределяет
+  `renderTextureOnScreen`, инициализирует `ScreenBlit` лениво при первом вызове (нужен
+  `AssetManager`), при провале откатывается на legacy с ошибкой в логе. Legacy-текстуры
+  в дескрипторный набор передаются как `Ref` с пустым делитером (не владеем).
+  `IRenderer::readScreenPixels()` читает backbuffer (GL: `glReadPixels` с FB 0, RGBA8,
+  строки снизу вверх). `AttachmentReadback` — в `Graphics/API/AttachmentReadback.h`.
+- Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
+  даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 
 ## Смоук-тест
 

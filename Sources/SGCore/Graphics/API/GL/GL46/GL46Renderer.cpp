@@ -5,6 +5,7 @@
 #include "SGCore/Memory/Assets/TextFileAsset.h"
 
 #include "RHI/GL46Device.h"
+#include "SGCore/Graphics/RHI/ScreenBlit.h"
 
 SGCore::GL46Renderer::~GL46Renderer() = default;
 
@@ -17,6 +18,31 @@ void SGCore::GL46Renderer::init() noexcept
 SGCore::IDevice* SGCore::GL46Renderer::getDevice() noexcept
 {
     return m_device.get();
+}
+
+void SGCore::GL46Renderer::renderTextureOnScreen(const ITexture2D* texture, bool flipOutput,
+                                                 int x, int y, int width, int height) noexcept
+{
+    // lazy: the screen shader asset is loadable only after the asset manager is up, which is
+    // later than init()
+    if(!m_screenBlitInitTried && m_device)
+    {
+        m_screenBlitInitTried = true;
+        m_screenBlit = std::make_unique<ScreenBlit>();
+        if(!m_screenBlit->init(*m_device))
+        {
+            SG_LOG_E("GL46Renderer: RHI ScreenBlit failed to initialize, falling back to the legacy screen quad.");
+            m_screenBlit.reset();
+        }
+    }
+
+    if(m_screenBlit)
+    {
+        m_screenBlit->blit(texture, flipOutput, x, y, width, height);
+        return;
+    }
+
+    GL4Renderer::renderTextureOnScreen(texture, flipOutput, x, y, width, height);
 }
 
 

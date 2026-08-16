@@ -204,6 +204,30 @@ namespace
         std::printf("center=(%d,%d,%d,%d) corner=(%d,%d,%d,%d)\n", center.r, center.g, center.b, center.a, corner.r, corner.g, corner.b, corner.a);
         check(center.r == 0 && center.g >= 126 && center.g <= 129 && center.b == 0 && center.a == 255, "center pixel is green * tint (0, ~128, 0)");
         check(corner.r == 0 && corner.g == 0 && corner.b == 255 && corner.a == 255, "corner pixel is the clear color");
+
+        // ---- screen blit (first migrated pass): the attachment onto the window at 1:1, read the window back
+        auto* renderer = SGCore::CoreMain::getRenderer().get();
+        renderer->bindScreenFrameBuffer();
+        renderer->renderTextureOnScreen(frameBuffer->getAttachment(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0).get(), false, 0, 0, size, size);
+        device->waitIdle();
+
+        SGCore::AttachmentReadback screen;
+        const bool screenRead = renderer->readScreenPixels(screen);
+        check(screenRead, "screen readback works");
+        if(screenRead && screen.m_width >= size && screen.m_height >= size)
+        {
+            auto screenPixel = [&](int x, int y) {
+                const std::size_t index = (static_cast<std::size_t>(y) * screen.m_width + x) * 4;
+                return glm::ivec4(screen.m_data[index], screen.m_data[index + 1], screen.m_data[index + 2], screen.m_data[index + 3]);
+            };
+            const auto screenCenter = screenPixel(size / 2, size / 2 - 4);
+            const auto screenCorner = screenPixel(1, size - 2);
+            std::printf("screen center=(%d,%d,%d,%d) corner=(%d,%d,%d,%d)\n",
+                        screenCenter.r, screenCenter.g, screenCenter.b, screenCenter.a,
+                        screenCorner.r, screenCorner.g, screenCorner.b, screenCorner.a);
+            check(screenCenter == center, "screen blit reproduces the attachment center pixel");
+            check(screenCorner == corner, "screen blit reproduces the attachment corner pixel");
+        }
     }
 
     void onInit()

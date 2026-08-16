@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "AttachmentReadback.h"
 #include "GAPIType.h"
 #include "IUniformBuffer.h"
 #include "SGCore/Transformations/Transform.h"
@@ -94,12 +95,20 @@ namespace SGCore
         void renderTextureOnScreen(const ITexture2D* texture, bool flipOutput = false) noexcept;
 
         /// Blit texture into a window-space rectangle (OpenGL bottom-left origin).
-        void renderTextureOnScreen(const ITexture2D* texture,
-                                   bool flipOutput,
-                                   int x,
-                                   int y,
-                                   int width,
-                                   int height) noexcept;
+        /// Backends migrated to the RHI override this with an RHI pass (ScreenBlit).
+        virtual void renderTextureOnScreen(const ITexture2D* texture,
+                                           bool flipOutput,
+                                           int x,
+                                           int y,
+                                           int width,
+                                           int height) noexcept;
+
+        /**
+         * Reads the window backbuffer (what the user sees) back to CPU in the backend's native
+         * layout — screenshots and tests. Rows follow the backend's origin convention.
+         * @return false if the backend can not read the backbuffer.
+         */
+        [[nodiscard]] virtual bool readScreenPixels(AttachmentReadback& out) const noexcept { return false; }
 
         /// Set the active screen viewport in window pixels (OpenGL bottom-left origin).
         virtual void setViewport(int x, int y, int width, int height) const noexcept = 0;

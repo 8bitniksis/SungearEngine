@@ -705,3 +705,26 @@ SGCore::GL4Renderer::useMeshRenderState(const SGCore::MeshRenderState& newMeshRe
         }
     }
 }
+
+bool SGCore::GL4Renderer::readScreenPixels(AttachmentReadback& out) const noexcept
+{
+    int width = 0;
+    int height = 0;
+    CoreMain::getWindow().getSize(width, height);
+    if(width <= 0 || height <= 0) return false;
+
+    out.m_width = width;
+    out.m_height = height;
+    out.m_format = SGGColorFormat::SGG_RGBA;
+    out.m_dataType = SGGDataType::SGG_UNSIGNED_BYTE;
+    out.m_channelsCount = 4;
+    out.m_data.resize(static_cast<std::size_t>(width) * height * 4);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glReadBuffer(GL_BACK);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, out.m_data.data());
+    glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+    return true;
+}

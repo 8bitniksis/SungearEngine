@@ -20,6 +20,7 @@ namespace SGCore
 {
     class CoreMain;
     class GL46Device;
+    class ScreenBlit;
 
     /**
      * OpenGL 4.6 backend: the GL4 implementation running on a 4.6 core context with
@@ -41,10 +42,17 @@ namespace SGCore
 
         [[nodiscard]] IDevice* getDevice() noexcept override;
 
+        /// First pass on the RHI: ScreenBlit; falls back to the legacy quad if the RHI pass
+        /// failed to initialize (e.g. screen shader did not compile).
+        void renderTextureOnScreen(const ITexture2D* texture, bool flipOutput,
+                                   int x, int y, int width, int height) noexcept override;
+
         static const std::shared_ptr<GL46Renderer>& getInstance() noexcept;
 
     private:
         std::unique_ptr<GL46Device> m_device;
+        std::unique_ptr<ScreenBlit> m_screenBlit;
+        bool m_screenBlitInitTried { };
 
         GL46Renderer() noexcept = default;
     };

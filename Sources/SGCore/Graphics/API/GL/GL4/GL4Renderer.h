@@ -76,6 +76,8 @@ namespace SGCore
         [[nodiscard]] IMeshData* createMeshData() const override;
 
         void bindScreenFrameBuffer() const noexcept final;
+
+        [[nodiscard]] bool readScreenPixels(AttachmentReadback& out) const noexcept override;
         void setViewport(int x, int y, int width, int height) const noexcept final;
 
         IGPUObjectsStorage& storage() noexcept final;

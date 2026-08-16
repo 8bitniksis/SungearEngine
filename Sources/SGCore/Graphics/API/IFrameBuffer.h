@@ -12,6 +12,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include "AttachmentReadback.h"
 #include "GraphicsDataTypes.h"
 #include "SGCore/Utils/Unique/UniqueName.h"
 #include "SGCore/Main/CoreGlobals.h"
@@ -21,16 +22,6 @@ namespace SGCore
     class IMaterial;
     class ITexture2D;
 
-    /// Result of IFrameBuffer::readAttachmentPixels(): raw pixels plus the layout they are in.
-    struct AttachmentReadback
-    {
-        std::int32_t m_width { };
-        std::int32_t m_height { };
-        SGGColorFormat m_format = SGGColorFormat::SGG_RGBA;
-        SGGDataType m_dataType = SGGDataType::SGG_UNSIGNED_BYTE;
-        std::int8_t m_channelsCount { };
-        std::vector<std::uint8_t> m_data;
-    };
 
     // todo: make read and draw bindings
     class SGCORE_EXPORT IFrameBuffer : public UniqueNameWrapper, public std::enable_shared_from_this<IFrameBuffer>

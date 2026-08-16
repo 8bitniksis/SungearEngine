@@ -110,5 +110,12 @@
   }, {
     "name" : "recastnavigation",
     "version>=" : "1.6.0#1"
+  }, {
+    "name" : "glslang",
+    "features" : [ "tools" ],
+    "version>=" : "15.1.0"
+  }, {
+    "name" : "spirv-reflect",
+    "version>=" : "1.4.309.0"
   } ]
 }

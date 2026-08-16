@@ -202,4 +202,12 @@ list(APPEND SungearEngine_LIBS "RecastNavigation::Recast")
 list(APPEND SungearEngine_LIBS "RecastNavigation::DebugUtils")
 list(APPEND SungearEngine_LIBS "RecastNavigation::DetourCrowd")
 
+find_package(glslang CONFIG REQUIRED)
+list(APPEND SungearEngine_LIBS "glslang::glslang")
+list(APPEND SungearEngine_LIBS "glslang::SPIRV")
+list(APPEND SungearEngine_LIBS "glslang::glslang-default-resource-limits")
+
+find_package(unofficial-spirv-reflect CONFIG REQUIRED)
+list(APPEND SungearEngine_LIBS "unofficial::spirv-reflect")
+
 list(APPEND SungearEngine_INCLUDE_DIRS "$ENV{SUNGEAR_SOURCES_ROOT}")

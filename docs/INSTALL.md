@@ -232,12 +232,17 @@ cmake --build <binary-dir> --target SGCoroTest
 cmake --build <binary-dir> --target SGShadersTest
 cd <binary-dir>/Tests/Shaders          # рядом должна лежать SGCore.dll (§6)
 SGShadersTest                                          # только юнит-проверки
-SGShadersTest --corpus E:/Github/SungearEngine --out vulkanized   # + корпус
+SGShadersTest --corpus E:/Github/SungearEngine --out vulkanized          # + корпус
+SGShadersTest --corpus E:/Github/SungearEngine --out vulkanized --spirv  # + SPIR-V + рефлексия
 ```
 
-Код выхода `0` — юнит-проверки прошли (и корпус обработан). Транслятор
-пишет отладочный дамп `SGSLETranslatorOutputDebug/` и `logs/` в текущий
-каталог — запускать из build-dir, не из корня репозитория.
+`--spirv` компилирует каждую программу корпуса в SPIR-V (glslang, Vulkan 1.3)
+и печатает сводку рефлексии; `.spv` пишутся рядом с `.glsl`. Код выхода `0` —
+юнит-проверки прошли (и корпус обработан); падение SPIR-V-компиляции пишется
+в сводку `spirv: N OK, M failed`. Транслятор пишет отладочный дамп
+`SGSLETranslatorOutputDebug/` и `logs/` в текущий каталог — запускать из
+build-dir, не из корня репозитория. Зависимости `glslang`/`spirv-reflect`
+ставятся vcpkg автоматически при конфигурации (добавлены 2026-08-17).
 
 ### Смоук-сцена рендера (`SGSmokeTest`)
 

@@ -109,6 +109,11 @@
          RecastNavigation::DebugUtils
          RecastNavigation::DetourCrowd
 
+         glslang::glslang
+         glslang::SPIRV
+         glslang::glslang-default-resource-limits
+         unofficial::spirv-reflect
+
          ${SG_BULLET_LIBS}
          ${FREETYPE_LIBRARIES}
          ${JNI_LIBRARIES}

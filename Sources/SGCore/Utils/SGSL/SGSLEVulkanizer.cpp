@@ -111,6 +111,8 @@ namespace
     struct StageScan
     {
         std::vector<Declaration> m_declarations;
+        /// Global-scope `struct Name { ... };` declarations: name → end offset of the statement.
+        std::unordered_map<std::string, std::size_t> m_structEnds;
         std::size_t m_firstStatementStart = npos;
         bool m_usesFragColor { };
     };
@@ -145,6 +147,34 @@ namespace
             else
             {
                 pos += from.size();
+            }
+        }
+        return replaced;
+    }
+
+    /// Rewrites references to a legacy block member: `name` → `instance.name`. A name preceded by
+    /// '.' is a field of some struct and is left alone; comments are rewritten harmlessly.
+    std::size_t replaceMemberReferences(std::string& code, std::string_view name, std::string_view instance) noexcept
+    {
+        const std::string replacement = std::string(instance) + "." + std::string(name);
+        std::size_t replaced = 0;
+        std::size_t pos = 0;
+        while((pos = code.find(name, pos)) != npos)
+        {
+            std::size_t before = pos;
+            while(before > 0 && (code[before - 1] == ' ' || code[before - 1] == '\t')) --before;
+            const bool afterDot = before > 0 && code[before - 1] == '.';
+            const bool leftOk = pos == 0 || !isIdentifierChar(code[pos - 1]);
+            const bool rightOk = pos + name.size() >= code.size() || !isIdentifierChar(code[pos + name.size()]);
+            if(leftOk && rightOk && !afterDot)
+            {
+                code.replace(pos, name.size(), replacement);
+                pos += replacement.size();
+                ++replaced;
+            }
+            else
+            {
+                pos += name.size();
             }
         }
         return replaced;
@@ -454,6 +484,14 @@ namespace
             {
                 scan.m_declarations.push_back(std::move(*declaration));
             }
+            else
+            {
+                const auto tokens = tokenize(code, i, end);
+                if(tokens.size() >= 3 && tokens[0].m_text == "struct" && tokens[2].m_text == "{")
+                {
+                    scan.m_structEnds[tokens[1].m_text] = end;
+                }
+            }
 
             i = end;
         }
@@ -536,11 +574,37 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
     struct LegacyMember
     {
         std::string m_declaration;
+        std::string m_typeName;
+        std::string m_name;
         std::string m_condition;
     };
-    std::vector<LegacyMember> legacyMembers;
-    std::unordered_map<std::string, std::size_t> legacyIndexByName;
-    bool legacyRegistered = false;
+    // One legacy block per stage: a stage only sees the types its own code declares, so a
+    // program-wide union would reference structs missing from stages that never included them
+    // (screen.glsl includes uniform_bufs_decl.glsl in the vertex stage only). A uniform declared
+    // in several stages lands in each stage's block; consumers write it by name into every block.
+    struct StageLegacy
+    {
+        std::string m_blockName;
+        std::vector<LegacyMember> m_members;
+        std::unordered_map<std::string, std::size_t> m_indexByName;
+    };
+    std::vector<StageLegacy> stageLegacy(stages.size());
+
+    auto legacyBlockNameFor = [&](SGSLESubShaderType type)
+    {
+        const char* suffix = "unknown";
+        switch(type)
+        {
+            case SST_VERTEX: suffix = "vertex"; break;
+            case SST_FRAGMENT: suffix = "fragment"; break;
+            case SST_GEOMETRY: suffix = "geometry"; break;
+            case SST_COMPUTE: suffix = "compute"; break;
+            case SST_TESS_CONTROL: suffix = "tess_control"; break;
+            case SST_TESS_EVALUATION: suffix = "tess_eval"; break;
+            default: break;
+        }
+        return config.m_legacyBlockName + "_" + suffix;
+    };
 
     auto registerResource = [&](const std::string& name, ResourceKind kind, std::uint32_t count,
                                 std::optional<std::uint32_t> explicitBinding)
@@ -619,24 +683,25 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
             }
             else
             {
-                if(!legacyRegistered)
+                auto& legacy = stageLegacy[s];
+                if(legacy.m_blockName.empty())
                 {
-                    registerResource(config.m_legacyBlockName, ResourceKind::LEGACY_UNIFORM_BLOCK, 1, std::nullopt);
-                    legacyRegistered = true;
+                    legacy.m_blockName = legacyBlockNameFor(stages[s].m_type);
+                    registerResource(legacy.m_blockName, ResourceKind::LEGACY_UNIFORM_BLOCK, 1, std::nullopt);
                 }
 
                 const std::string condition = memberCondition(declaration.m_conditions);
 
-                if(!legacyIndexByName.contains(declaration.m_name))
+                if(!legacy.m_indexByName.contains(declaration.m_name))
                 {
-                    legacyIndexByName.emplace(declaration.m_name, legacyMembers.size());
-                    legacyMembers.push_back({ declaration.m_typeName + " " + declaration.m_name + declaration.m_arraySuffix + ";",
-                                              condition });
+                    legacy.m_indexByName.emplace(declaration.m_name, legacy.m_members.size());
+                    legacy.m_members.push_back({ declaration.m_typeName + " " + declaration.m_name + declaration.m_arraySuffix + ";",
+                                                 declaration.m_typeName, declaration.m_name, condition });
                 }
-                else if(legacyMembers[legacyIndexByName[declaration.m_name]].m_condition != condition)
+                else
                 {
-                    report.m_warnings.push_back("uniform '" + declaration.m_name +
-                                                "' is declared under different preprocessor conditions across stages; first one kept");
+                    report.m_warnings.push_back("uniform '" + declaration.m_name + "' is declared twice in stage " +
+                                                std::to_string(std::to_underlying(stages[s].m_type)) + "; first one kept");
                 }
 
                 if(declaration.m_hadInitializer) ++report.m_initializersDropped;
@@ -690,46 +755,72 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
         }
     }
 
-    // ---- legacy block text (identical in every stage that had loose uniforms)
-
-    std::string legacyBlockText;
-    if(legacyRegistered)
-    {
-        legacyBlockText = "layout(std140, " + layoutBindingText(config.m_descriptorSet, resources[config.m_legacyBlockName].m_binding) +
-                          ") uniform " + config.m_legacyBlockName + "\n{\n";
-        for(const auto& member : legacyMembers)
-        {
-            if(!member.m_condition.empty()) legacyBlockText += "#if " + member.m_condition + "\n";
-            legacyBlockText += "    " + member.m_declaration + "\n";
-            if(!member.m_condition.empty()) legacyBlockText += "#endif\n";
-        }
-        legacyBlockText += "};\n";
-    }
-
     // ---- rewrite each stage
 
     for(std::size_t s = 0; s < stages.size(); ++s)
     {
         auto& stage = stages[s];
         const auto& scan = scans[s];
+        const auto& legacy = stageLegacy[s];
         std::vector<Edit> edits;
 
-        // the block goes where the first loose uniform living directly in the common region stood:
-        // placing it under an extra #if would hide it from the rest of the stage
+        // Named instance, not an anonymous block: members of anonymous blocks live in the program's
+        // global namespace and glslang refuses to link two stages whose different anonymous blocks
+        // share a member name. References are rewritten to `<instance>.<member>` below.
+        const std::string legacyInstanceName = legacy.m_blockName.empty() ? "" : "sg_" + legacy.m_blockName;
+        std::string legacyBlockText;
+        if(!legacy.m_blockName.empty())
+        {
+            legacyBlockText = "layout(std140, " + layoutBindingText(config.m_descriptorSet, resources[legacy.m_blockName].m_binding) +
+                              ") uniform " + legacy.m_blockName + "\n{\n";
+            for(const auto& member : legacy.m_members)
+            {
+                if(!member.m_condition.empty()) legacyBlockText += "#if " + member.m_condition + "\n";
+                legacyBlockText += "    " + member.m_declaration + "\n";
+                if(!member.m_condition.empty()) legacyBlockText += "#endif\n";
+            }
+            legacyBlockText += "} " + legacyInstanceName + ";\n";
+        }
+        constexpr std::string_view legacyBlockPlaceholder = "@@SG_LEGACY_BLOCK@@";
+
+        // The block goes where the first loose uniform living directly in the common region stood
+        // (placing it under an extra #if would hide it from the rest of the stage) — but not before
+        // every struct type used by its members is declared: a `uniform ObjectTransform t;` whose
+        // struct comes from a later include must not precede that struct.
+        std::size_t typesDeclaredAt = 0;
+        for(const auto& member : legacy.m_members)
+        {
+            if(auto it = scan.m_structEnds.find(member.m_typeName); it != scan.m_structEnds.end())
+            {
+                typesDeclaredAt = std::max(typesDeclaredAt, it->second);
+            }
+        }
+
         std::size_t legacyBlockAt = npos;
+        std::size_t firstLooseUniformAt = npos;
+        std::size_t lastLooseUniformAt = npos;
         bool placedInRegion = false;
         for(const auto& declaration : scan.m_declarations)
         {
             if(declaration.m_isBlock || isOpaqueType(declaration.m_typeName)) continue;
-            if(legacyBlockAt == npos) legacyBlockAt = declaration.m_begin;
-            if(declaration.m_conditions.size() == commonConditions.size())
+            if(firstLooseUniformAt == npos) firstLooseUniformAt = declaration.m_begin;
+            lastLooseUniformAt = declaration.m_begin;
+            if(legacyBlockAt == npos && declaration.m_begin >= typesDeclaredAt) legacyBlockAt = declaration.m_begin;
+            if(declaration.m_conditions.size() == commonConditions.size() && declaration.m_begin >= typesDeclaredAt)
             {
                 legacyBlockAt = declaration.m_begin;
                 placedInRegion = true;
                 break;
             }
         }
-        if(legacyBlockAt != npos && !placedInRegion)
+        if(firstLooseUniformAt != npos && legacyBlockAt == npos)
+        {
+            // every loose uniform precedes some struct it (or a sibling member) needs
+            legacyBlockAt = lastLooseUniformAt;
+            report.m_warnings.push_back("stage " + std::to_string(std::to_underlying(stage.m_type)) +
+                                        ": a struct used by the legacy block is declared after all loose uniforms; block placed at the last one, expect compile errors");
+        }
+        else if(legacyBlockAt != npos && !placedInRegion)
         {
             report.m_warnings.push_back("stage " + std::to_string(std::to_underlying(stage.m_type)) +
                                         ": every loose uniform is under an extra #if; legacy block placed under the first one's condition");
@@ -766,7 +857,9 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
             std::string replacement(countNewlines(removed), '\n');
             if(declaration.m_begin == legacyBlockAt)
             {
-                replacement = legacyBlockText + replacement;
+                // placeholder: member references are rewritten before the block text (which
+                // declares the very same names) is put in
+                replacement = std::string(legacyBlockPlaceholder) + replacement;
             }
             edits.push_back({ declaration.m_begin, declaration.m_end - declaration.m_begin, replacement, 0 });
             ++report.m_looseUniformsMoved;
@@ -779,6 +872,20 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
         }
 
         applyEdits(stage.m_code, edits);
+
+        if(!legacy.m_blockName.empty())
+        {
+            for(const auto& member : legacy.m_members)
+            {
+                replaceMemberReferences(stage.m_code, member.m_name, legacyInstanceName);
+            }
+
+            const auto placeholderPos = stage.m_code.find(legacyBlockPlaceholder);
+            if(placeholderPos != npos)
+            {
+                stage.m_code.replace(placeholderPos, legacyBlockPlaceholder.size(), legacyBlockText);
+            }
+        }
 
         if(scan.m_usesFragColor)
         {

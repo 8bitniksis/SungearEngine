@@ -128,6 +128,8 @@ find_package(JNI REQUIRED)
 find_path(SOL2_INCLUDE_DIRS "sol/abort.hpp")
 find_package(Lua REQUIRED)
 find_package(recastnavigation CONFIG REQUIRED)
+find_package(glslang CONFIG REQUIRED)
+find_package(unofficial-spirv-reflect CONFIG REQUIRED)
 
 message(STATUS "JNI_INCLUDE_DIRS: ${JNI_INCLUDE_DIRS}")
 message(STATUS "JNI_LIBRARIES: ${JNI_LIBRARIES}")

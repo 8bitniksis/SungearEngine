@@ -17,9 +17,12 @@ namespace SGCore
      * Rewrites translated SGSL sub-shaders (GLSL, OpenGL flavour) into Vulkan-compatible GLSL
      * that glslang accepts with a Vulkan target:
      *
-     *  - loose non-opaque uniforms (`uniform vec4 u_color;`) are collected into one generated
-     *    std140 block (default name `SGLegacyUniforms`) — block members without an instance name
-     *    stay visible under their old names, so the rest of the shader code is untouched;
+     *  - loose non-opaque uniforms (`uniform vec4 u_color;`) are collected into a generated
+     *    std140 block per stage (`SGLegacyUniforms_vertex`, `SGLegacyUniforms_fragment`, ...) —
+     *    block members without an instance name stay visible under their old names, so the rest
+     *    of the shader code is untouched. Blocks are per stage because a stage only knows the
+     *    struct types its own code declares; a uniform declared in several stages is a member of
+     *    each of their blocks and consumers write it by name into every block that has it;
      *  - samplers / images / texel buffers and uniform blocks get `layout(set = S, binding = B)`;
      *    existing explicit bindings are kept;
      *  - `gl_FragColor` becomes a declared `out` variable, `gl_VertexID` / `gl_InstanceID`
@@ -39,6 +42,7 @@ namespace SGCore
         {
             std::uint32_t m_descriptorSet = 0;
             std::uint32_t m_firstBinding = 0;
+            /// Prefix of the per-stage legacy blocks: `<prefix>_vertex`, `<prefix>_fragment`, ...
             std::string m_legacyBlockName = "SGLegacyUniforms";
             std::string m_fragColorName = "sgFragColor";
         };

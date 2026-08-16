@@ -51,7 +51,7 @@
 |--------|------------|
 | `ECS/` | Обвязка над EnTT: `Registry`, `Component`, `EntitiesPool`, визиторы компонентов |
 | `Render/` | Рендер: PBR-пайплайн (`PBRRP/`), батчинг, CSM-тени, менеджер пайплайнов |
-| `Graphics/` | Графические API-абстракции: `API/` — интерфейсы (`IRenderer`, `IShader`…), `GAPIType` + `GAPISelector` (выбор бэкенда, `SG_GAPI`), бэкенды `GL/` (рабочие), `Vulkan/` (скелет) |
+| `Graphics/` | Графические API-абстракции: `API/` — интерфейсы (`IRenderer`, `IShader`…), `GAPIType` + `GAPISelector` (выбор бэкенда, `SG_GAPI`), бэкенды `GL/` (рабочие), `Vulkan/` (скелет); `SPIRV/` — `SPIRVCompiler` (glslang) и `ShaderReflection` (SPIRV-Reflect) |
 | `Scene/` | Сцена, `EntityBaseInfo`, сохранение/загрузка сцен |
 | `Memory/` | `AssetManager`, ассеты (модели, аудио, атласы), пакеты ассетов |
 | `Serde/` | Сериализация/десериализация с поддержкой полиморфизма и шаринга данных |
@@ -134,6 +134,7 @@
 | `sol2` + `lua` | Скриптинг |
 | `recastnavigation` | Навигационные меши |
 | `meshoptimizer`, `stb`, `libpng`, `brotli` | Оптимизация мешей, изображения, компрессия |
+| `glslang` (+`tools`), `spirv-reflect` | Компиляция SGSL → SPIR-V и рефлексия шейдеров (`Graphics/SPIRV/`), с 2026-08-17 |
 | `gtest` | Тесты (заявлен в манифесте, в таргетах пока закомментирован) |
 
 ### Вендореные (`/Externals/`)

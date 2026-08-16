@@ -9,8 +9,10 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
+#include "SGCore/Graphics/SPIRV/SPIRVCompiler.h"
 #include "SGCore/Utils/SGSL/SGSLETranslator.h"
 #include "SGCore/Utils/SGSL/SGSLEVulkanizer.h"
 #include "SGCore/Utils/SGSL/ShaderAnalyzedFile.h"
@@ -64,28 +66,33 @@ namespace
         const auto& fs = stages[1].m_code;
 
         check(!contains(vs, "uniform mat4 u_model;"), "loose uniform removed from VS");
-        check(contains(vs, "uniform SGLegacyUniforms"), "legacy block present in VS");
+        check(contains(vs, "uniform SGLegacyUniforms_vertex"), "per-stage legacy block present in VS");
         check(contains(vs, "mat4 u_model;"), "u_model is a block member in VS");
-        check(contains(vs, "vec4 u_color;"), "block is the union: u_color present in VS too");
+        check(!contains(vs, "vec4 u_color;"), "VS block holds only VS uniforms (no u_color)");
         check(contains(vs, "layout(std140, set = 0, binding = "), "legacy block has set/binding");
         check(contains(vs, "layout(set = 0, binding = ") && contains(vs, "uniform CameraData"), "CameraData got set/binding merged into layout");
 
+        check(contains(fs, "uniform SGLegacyUniforms_fragment"), "per-stage legacy block present in FS");
+        check(contains(fs, "vec4 u_color;") && contains(fs, "mat4 u_model;"), "FS block holds u_color and its own u_model copy");
+        check(contains(fs, "} sg_SGLegacyUniforms_fragment;"), "FS block has an instance name");
+        check(contains(vs, "sg_SGLegacyUniforms_vertex.u_model * vec4"), "VS reference rewritten to instance.member");
         check(contains(fs, "layout(set = 0, binding = ") && contains(fs, "uniform sampler2D u_tex;"), "sampler got layout");
         check(contains(fs, "layout(location = 0) out vec4 sgFragColor;"), "fragment out declared");
-        check(contains(fs, "sgFragColor = u_color"), "gl_FragColor usage rewritten");
+        check(contains(fs, "sgFragColor = sg_SGLegacyUniforms_fragment.u_color"), "gl_FragColor usage rewritten, member qualified");
         check(!contains(fs, "gl_FragColor"), "no gl_FragColor left");
 
-        // bindings must be identical across stages: legacy block and CameraData in VS, u_tex in FS
-        std::uint32_t legacyBinding = 99, cameraBinding = 99, texBinding = 99;
+        // every resource of the program gets its own binding number
+        std::uint32_t vsLegacy = 99, fsLegacy = 99, cameraBinding = 99, texBinding = 99;
         for(const auto& binding : report.m_bindings)
         {
-            if(binding.m_name == "SGLegacyUniforms") legacyBinding = binding.m_binding;
+            if(binding.m_name == "SGLegacyUniforms_vertex") vsLegacy = binding.m_binding;
+            if(binding.m_name == "SGLegacyUniforms_fragment") fsLegacy = binding.m_binding;
             if(binding.m_name == "CameraData") cameraBinding = binding.m_binding;
             if(binding.m_name == "u_tex") texBinding = binding.m_binding;
         }
-        check(legacyBinding != cameraBinding && cameraBinding != texBinding && legacyBinding != texBinding, "bindings are distinct");
-        check(contains(vs, "binding = " + std::to_string(legacyBinding) + ") uniform SGLegacyUniforms"), "VS uses table binding for legacy block");
-        check(contains(fs, "binding = " + std::to_string(legacyBinding) + ") uniform SGLegacyUniforms"), "FS uses the same legacy binding");
+        check(vsLegacy != fsLegacy && vsLegacy != cameraBinding && fsLegacy != texBinding && cameraBinding != texBinding, "bindings are distinct");
+        check(contains(vs, "binding = " + std::to_string(vsLegacy) + ") uniform SGLegacyUniforms_vertex"), "VS uses table binding for its block");
+        check(contains(fs, "binding = " + std::to_string(fsLegacy) + ") uniform SGLegacyUniforms_fragment"), "FS uses table binding for its block");
 
         // line count preserved where uniforms were removed (only the block adds lines)
         check(report.m_warnings.empty(), "no warnings");
@@ -192,7 +199,72 @@ namespace
         return buffer.str();
     }
 
-    int runCorpus(const std::filesystem::path& root, const std::filesystem::path& outDir)
+    // ---------------------------------------------------------------- SPIR-V compile of a snippet program
+
+    void testSpirvCompileAndReflect()
+    {
+        std::printf("[spirv compile + reflection]\n");
+
+        std::vector<SGSLEVulkanizer::Stage> stages = {
+            { SGCore::SST_VERTEX,
+              "layout(location = 0) in vec3 positionsAttribute;\n"
+              "uniform mat4 u_model;\n"
+              "layout(std140) uniform CameraData { mat4 view; mat4 projection; };\n"
+              "out vec2 vs_uv;\n"
+              "void main() { vs_uv = positionsAttribute.xy; gl_Position = projection * view * u_model * vec4(positionsAttribute, 1.0); }\n" },
+            { SGCore::SST_FRAGMENT,
+              "uniform vec4 u_color;\n"
+              "uniform float u_factors[4];\n"
+              "uniform sampler2D u_tex[2];\n"
+              "in vec2 vs_uv;\n"
+              "void main() { gl_FragColor = u_color * texture(u_tex[1], vs_uv) * u_factors[2]; }\n" },
+        };
+
+        std::ignore = SGSLEVulkanizer::vulkanize(stages, { });
+
+        std::vector<SGCore::SPIRVCompiler::StageSource> sources;
+        for(const auto& stage : stages) sources.push_back({ stage.m_type, stage.m_code });
+
+        SGCore::SPIRVCompiler::Options options;
+        options.m_programName = "snippet";
+        const auto result = SGCore::SPIRVCompiler::compile(sources, options);
+
+        check(result.m_success, "snippet program compiles to SPIR-V");
+        if(!result.m_success) { std::printf("%s\n", result.m_log.c_str()); return; }
+
+        check(result.m_stages.size() == 2 && !result.m_stages[0].m_spirv.empty() && !result.m_stages[1].m_spirv.empty(), "two SPIR-V modules");
+
+        const auto& reflection = result.m_reflection;
+        const auto* vsLegacy = reflection.findBinding("SGLegacyUniforms_vertex");
+        const auto* fsLegacy = reflection.findBinding("SGLegacyUniforms_fragment");
+        check(vsLegacy != nullptr && fsLegacy != nullptr, "per-stage legacy blocks reflected");
+        if(vsLegacy && fsLegacy)
+        {
+            check(vsLegacy->m_type == SGCore::ShaderDescriptorType::UNIFORM_BUFFER, "legacy block is a uniform buffer");
+            check(vsLegacy->m_stages == (1u << SGCore::SST_VERTEX), "vertex block used in vertex stage only");
+            check(fsLegacy->m_stages == (1u << SGCore::SST_FRAGMENT), "fragment block used in fragment stage only");
+            const auto* model = reflection.findMember("SGLegacyUniforms_vertex", "u_model");
+            const auto* color = reflection.findMember("SGLegacyUniforms_fragment", "u_color");
+            const auto* factors = reflection.findMember("SGLegacyUniforms_fragment", "u_factors");
+            check(model && model->m_offset == 0 && model->m_size == 64, "u_model at offset 0, 64 bytes");
+            check(color && color->m_offset == 0 && color->m_size == 16, "u_color at offset 0 of the fragment block");
+            check(factors && factors->m_arrayCount == 4 && factors->m_offset == 16, "u_factors[4] at 16 (std140 array stride 16)");
+            check(fsLegacy->m_blockSize >= 80, "fragment block size covers all members");
+        }
+
+        const auto* camera = reflection.findBinding("CameraData");
+        check(camera && camera->m_members.size() == 2 && camera->m_blockSize == 128, "CameraData: 2 mat4, 128 bytes");
+
+        const auto* tex = reflection.findBinding("u_tex");
+        check(tex && tex->m_type == SGCore::ShaderDescriptorType::COMBINED_IMAGE_SAMPLER && tex->m_count == 2, "u_tex[2] is a combined image sampler array");
+
+        check(reflection.m_vertexInputs.size() == 1 && reflection.m_vertexInputs[0].m_name == "positionsAttribute" &&
+              reflection.m_vertexInputs[0].m_location == 0, "vertex input reflected");
+
+        if(!result.m_log.empty()) std::printf("  log: %s\n", result.m_log.c_str());
+    }
+
+    int runCorpus(const std::filesystem::path& root, const std::filesystem::path& outDir, bool compileSpirv)
     {
         const auto shadersDir = root / "Resources" / "sg_shaders";
         if(!std::filesystem::exists(shadersDir))
@@ -205,6 +277,12 @@ namespace
         std::filesystem::create_directories(outDir);
 
         std::size_t files = 0, stages = 0, moved = 0, opaque = 0, blocks = 0, warnings = 0;
+        std::size_t spirvOk = 0, spirvFailed = 0;
+        std::vector<std::string> spirvFailures;
+
+        // the same defines the GL4 backend prepends on PC (GL4Renderer::createShader) plus the
+        // shader's own #attribute defines, so #if branches match a real compilation
+        const std::string baseDefines = "#define SG_GLSL4 \n";
 
         for(const auto& entry : std::filesystem::recursive_directory_iterator(shadersDir))
         {
@@ -216,10 +294,13 @@ namespace
             SGCore::ShaderAnalyzedFile analyzed;
             translator.processCode(entry.path(), readFile(entry.path()), &analyzed);
 
+            std::string defines = baseDefines;
+            for(const auto& [name, value] : analyzed.getAttributes()) defines += "#define " + name + " " + value + "\n";
+
             std::vector<SGSLEVulkanizer::Stage> vkStages;
             for(const auto& subShader : analyzed.getSubShaders())
             {
-                vkStages.push_back({ subShader.getType(), subShader.getCode() });
+                vkStages.push_back({ subShader.getType(), defines + subShader.getCode() });
             }
 
             const auto report = SGSLEVulkanizer::vulkanize(vkStages, { });
@@ -244,11 +325,46 @@ namespace
             opaque += report.m_opaqueUniformsBound;
             blocks += report.m_uniformBlocksBound;
             warnings += report.m_warnings.size();
+
+            if(compileSpirv && !vkStages.empty())
+            {
+                std::vector<SGCore::SPIRVCompiler::StageSource> sources;
+                for(const auto& stage : vkStages) sources.push_back({ stage.m_type, stage.m_code });
+
+                SGCore::SPIRVCompiler::Options options;
+                options.m_programName = relative;
+                const auto result = SGCore::SPIRVCompiler::compile(sources, options);
+
+                if(result.m_success)
+                {
+                    ++spirvOk;
+                    std::printf("    spirv: OK — %zu bindings, %zu vertex inputs, %zu push ranges\n",
+                                result.m_reflection.m_bindings.size(), result.m_reflection.m_vertexInputs.size(),
+                                result.m_reflection.m_pushConstants.size());
+                    for(const auto& stage : result.m_stages)
+                    {
+                        std::ofstream out(outDir / (baseName + "." + stageName(stage.m_type) + ".spv"), std::ios::binary);
+                        out.write(reinterpret_cast<const char*>(stage.m_spirv.data()),
+                                  static_cast<std::streamsize>(stage.m_spirv.size() * sizeof(std::uint32_t)));
+                    }
+                }
+                else
+                {
+                    ++spirvFailed;
+                    spirvFailures.push_back(relative);
+                    std::printf("    spirv: FAILED\n%s\n", result.m_log.c_str());
+                }
+            }
         }
 
         std::printf("\ncorpus: %zu files, %zu stages, %zu loose uniforms moved, %zu opaque bound, %zu blocks bound, %zu warnings\n"
                     "vulkanized GLSL written to '%s'\n",
                     files, stages, moved, opaque, blocks, warnings, outDir.string().c_str());
+        if(compileSpirv)
+        {
+            std::printf("spirv: %zu programs OK, %zu failed\n", spirvOk, spirvFailed);
+            for(const auto& name : spirvFailures) std::printf("  failed: %s\n", name.c_str());
+        }
 
         return files == 0 ? 2 : 0;
     }
@@ -258,18 +374,21 @@ int main(int argc, char** argv)
 {
     std::filesystem::path corpusRoot;
     std::filesystem::path outDir = "vulkanized";
+    bool compileSpirv = false;
 
     for(int i = 1; i < argc; ++i)
     {
         const std::string_view arg = argv[i];
         if(arg == "--corpus" && i + 1 < argc) corpusRoot = argv[++i];
         else if(arg == "--out" && i + 1 < argc) outDir = argv[++i];
+        else if(arg == "--spirv") compileSpirv = true;
         else if(arg == "--help")
         {
-            std::puts("SGShadersTest [--corpus <engine root>] [--out <dir>]\n"
-                      "  without --corpus: unit checks of the SGSL vulkanizer on built-in snippets\n"
+            std::puts("SGShadersTest [--corpus <engine root>] [--out <dir>] [--spirv]\n"
+                      "  without --corpus: unit checks of the SGSL vulkanizer and SPIR-V compiler on built-in snippets\n"
                       "  with --corpus: additionally translates every Resources/sg_shaders/**/*.sgshader,\n"
-                      "  vulkanizes it and dumps the result to <dir> (default ./vulkanized)");
+                      "  vulkanizes it and dumps the result to <dir> (default ./vulkanized)\n"
+                      "  --spirv: also compiles every corpus program to SPIR-V (glslang) and reflects it");
             return 0;
         }
     }
@@ -277,13 +396,14 @@ int main(int argc, char** argv)
     testLooseUniformsBecomeBlock();
     testConditionalUniformsAndExplicitBindings();
     testBuiltinsAndFunctionsUntouched();
+    testSpirvCompileAndReflect();
 
     std::printf("\nunit checks: %s (%d failure(s))\n", g_failures == 0 ? "PASS" : "FAIL", g_failures);
 
     int corpusResult = 0;
     if(!corpusRoot.empty())
     {
-        corpusResult = runCorpus(corpusRoot, outDir);
+        corpusResult = runCorpus(corpusRoot, outDir, compileSpirv);
     }
 
     return g_failures == 0 && corpusResult == 0 ? 0 : 1;

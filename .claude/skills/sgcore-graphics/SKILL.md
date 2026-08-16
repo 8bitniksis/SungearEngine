@@ -159,14 +159,34 @@ description: >-
   `logs/` в текущий каталог (флаг `m_useOutputDebug` не проверяется) — запускать
   инструменты из build-dir.
 - **Вулканизация** (`Utils/SGSL/SGSLEVulkanizer`, 2026-08-17): переводит стадии
-  программы в Vulkan-GLSL — свободные юниформы → один std140-блок
-  `SGLegacyUniforms` (члены видны под старыми именами, код не трогается),
-  `set/binding` сэмплерам/UBO/TBO (явные сохраняются), `#if`-условия членов
-  сохраняются с вырезанным общим guard'ом файла, `gl_FragColor`→`sgFragColor` +
-  `out`, `gl_VertexID`→`gl_VertexIndex`. Обрабатывать **всю программу разом** —
-  биндинги должны совпасть между стадиями. Дефайны приписывать до вулканизации.
-  Массивы сэмплеров с макро-размером (`[SG_SPOT_LIGHTS_MAX_COUNT]`) дают
-  предупреждение и count = 1 — брать из рефлексии. Тест: `Tests/Shaders`.
+  программы в Vulkan-GLSL — свободные юниформы стадии → std140-блок
+  `SGLegacyUniforms_<stage>` с экземпляром `sg_SGLegacyUniforms_<stage>`,
+  обращения переписаны в `instance.member`; `set/binding` сэмплерам/UBO/TBO
+  (явные сохраняются), `#if`-условия членов сохраняются с вырезанным общим
+  guard'ом файла, блок ставится не раньше объявления `struct`-типов членов,
+  `gl_FragColor`→`sgFragColor` + `out`, `gl_VertexID`→`gl_VertexIndex`.
+  Обрабатывать **всю программу разом** — биндинги должны совпасть между стадиями.
+  Дефайны приписывать до вулканизации. Массивы сэмплеров с макро-размером
+  (`[SG_SPOT_LIGHTS_MAX_COUNT]`) дают предупреждение и count = 1 — брать из
+  рефлексии. Тест: `Tests/Shaders` (`--corpus`, `--spirv`).
+- **Почему блок пер-стадийный, а не общий** (грабли 2026-08-17): (1) стадия видит
+  только свои `struct`-типы — `screen.glsl`/`div.glsl` инклудят
+  `uniform_bufs_decl.glsl` только в вершинной стадии, общий блок с
+  `ObjectTransform` не компилировался во фрагментной; (2) члены **анонимных**
+  блоков глобальны для программы — glslang не линкует две стадии, где одно имя
+  принадлежит разным анонимным блокам («Anonymous member name used for global
+  variable or other anonymous member»). Отсюда именованный экземпляр и
+  переписывание обращений. Фасад `useX("имя")` пишет во все блоки с таким членом.
+- **SPIR-V + рефлексия** (`Graphics/SPIRV/SPIRVCompiler`, `ShaderReflection`):
+  glslang 15.1, `EShClientVulkan`/`EShTargetVulkan_1_3`/`EShTargetSpv_1_6`,
+  `setAutoMapLocations(true)` + `program.mapIO()` — авто-локации in/out
+  согласованы между стадиями (шейдеры движка их не пишут); SPIRV-Reflect даёт
+  set/binding, тип дескриптора, count, члены блоков (offset/size/paddedSize),
+  вершинные входы, push constants; блоки именуются **именем типа блока**, не
+  экземпляра. Проверено: 23/23 программ корпуса компилируются.
+  vcpkg-цели: `glslang::glslang`, `glslang::SPIRV`,
+  `glslang::glslang-default-resource-limits`, `unofficial::spirv-reflect`
+  (не `unofficial::spirv-reflect::spirv-reflect`).
 - `features/pbr/instancing.sgshader` — мёртвый: инклудит несуществующий
   `impl/glsl4/pbr/instancing.glsl` (0 стадий при трансляции).
 

@@ -412,6 +412,12 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
   `IVertexArray` оборачиваются не владеющими `IGPUBuffer` по нативному хендлу, PSO —
   из их записанных атрибутов; динамические данные обновляются на месте. Итого все 17
   точек отрисовки GL46 идут через `ICommandList`; legacy-VAO путь — только откат.
+- **Мигрированы фреймбуферы** (шаг 5): `GL46FrameBuffer` переводит legacy `bind/clear/unbind`
+  в `beginRenderPass`/`clear*`/`endRenderPass`; `ICommandList` получил `clearColorAttachment`/
+  `clearDepthStencil` (mid-pass clear — `vkCmdClearAttachments`/`Clear*View`). Смена draw
+  buffers под биндом = re-begin прохода с LOAD ops. Итог: на GL46 через RHI идут шейдеры,
+  буферы, PSO, draw, render targets и вывод на экран; вне RHI остаются только биндинг
+  текстур (`texture->bind(unit)`) и сам legacy-интерфейс `IShader`.
 - Правило миграции прохода: legacy-реализация остаётся как откат (`GL46Renderer`
   падает на неё, если RHI-проход не инициализировался), проход считается
   перенесённым только при 0 % расхождений смоука на GL46.

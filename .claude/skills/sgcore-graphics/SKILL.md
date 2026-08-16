@@ -254,6 +254,14 @@ description: >-
   `IIndexBuffer`; кеш `m_wrappedBuffers` по хендлу), слоты — по буферам, отсортированным по хендлу
   (стабильный ключ кеша PSO), `perInstance` — если у атрибута divisor > 0. Данные динамических
   буферов (subData) остаются в тех же GL-объектах — обёртка это не ломает.
+- **Фреймбуферы через RHI** (шаг 5): `GL46Renderer::createFrameBuffer` отдаёт `GL46FrameBuffer`;
+  его `bind()` = `beginRenderPass` (LOAD ops, draw buffers = последний `bindAttachmentsToDrawIn`),
+  `bindAttachmentsToDrawIn` под биндом = re-begin, `clearAttachment` = `clearColorAttachment(индекс
+  attachment'а, m_clearColor)` / `clearDepthStencil`, `unbind()` = `endRenderPass` (+ viewport окна).
+  `GL46CommandList::beginRenderPass` биндит FBO по `getNativeHandle()`, ставит draw buffers через
+  `glNamedFramebufferDrawBuffers`, viewport: явный размер → поля `m_viewport*` фреймбуфера → окно.
+  Все GL46-фреймбуферы движка (в т.ч. `LayeredFrameReceiver`) теперь такие; `IFrameBuffer` без
+  RHI (GL4) — legacy.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 

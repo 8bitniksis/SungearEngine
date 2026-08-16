@@ -40,6 +40,9 @@ namespace SGCore
         void draw(std::uint32_t vertexCount, std::uint32_t instanceCount, std::uint32_t firstVertex, std::uint32_t firstInstance) noexcept override;
         void drawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount, std::uint32_t firstIndex, std::int32_t vertexOffset, std::uint32_t firstInstance) noexcept override;
 
+        void clearColorAttachment(std::uint32_t colorIndex, const glm::vec4& color) noexcept override;
+        void clearDepthStencil(float depth, bool clearStencil, std::uint32_t stencil) noexcept override;
+
         void transition(const Ref<IGPUObject>& resource, GPUResourceState newState) noexcept override;
         void uploadData(const Ref<IGPUBuffer>& dst, const void* data, std::uint64_t size, std::uint64_t offset) noexcept override;
 

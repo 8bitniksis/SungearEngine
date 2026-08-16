@@ -98,6 +98,9 @@ namespace SGCore
 
         [[nodiscard]] virtual glm::vec3 readPixelsFromAttachment(const glm::vec2& mousePos, SGFrameBufferAttachmentType attachmentType) const noexcept = 0;
 
+        /// Backend object handle (GL: framebuffer name; 0 = default framebuffer).
+        [[nodiscard]] virtual std::uintptr_t getNativeHandle() const noexcept { return 0; }
+
         /**
          * Reads the whole color attachment back to CPU in the attachment's own format
          * (m_format / m_dataType of the attachment texture), tightly packed, rows ordered the way

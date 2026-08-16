@@ -48,6 +48,11 @@ namespace SGCore
                                  std::uint32_t firstIndex = 0, std::int32_t vertexOffset = 0,
                                  std::uint32_t firstInstance = 0) noexcept = 0;
 
+        /// Clears inside a render pass (Vulkan: vkCmdClearAttachments; DX12: Clear*View).
+        /// p colorIndex is the index in RenderPassBeginDesc::m_colorAttachments / the framebuffer's color attachment index.
+        virtual void clearColorAttachment(std::uint32_t colorIndex, const glm::vec4& color) noexcept = 0;
+        virtual void clearDepthStencil(float depth = 1.0f, bool clearStencil = false, std::uint32_t stencil = 0) noexcept = 0;
+
         /// Explicit resource state transition; a no-op on GL (see DeviceProperties::m_supportsExplicitBarriers).
         virtual void transition(const Ref<IGPUObject>& resource, GPUResourceState newState) noexcept = 0;
 

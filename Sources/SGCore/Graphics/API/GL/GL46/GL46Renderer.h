@@ -67,6 +67,11 @@ namespace SGCore
         /// Called by GL46Shader::bind(): the shader whose program the next RHI draw uses.
         void setCurrentLegacyShader(GL46Shader* shader) noexcept { m_currentLegacyShader = shader; }
 
+        /// Framebuffers of this backend execute legacy bind/clear/unbind as RHI render passes.
+        [[nodiscard]] GL4FrameBuffer* createFrameBuffer() override;
+        /// Command list the GL46FrameBuffer objects record render-pass operations into (nullptr before init).
+        [[nodiscard]] ICommandList* getFrameBufferCommandList() noexcept;
+
         static const std::shared_ptr<GL46Renderer>& getInstance() noexcept;
 
     private:
@@ -75,6 +80,7 @@ namespace SGCore
         bool m_screenBlitInitTried { };
         GL46Shader* m_currentLegacyShader { };
         Ref<ICommandList> m_meshCommandList;
+        Ref<ICommandList> m_frameBufferCommandList;
 
         [[nodiscard]] bool prepareMeshRHI(IMeshData& meshData) noexcept;
         /// Shared body of renderArray / renderArrayInstanced; returns false when the legacy path must run.

@@ -9,6 +9,11 @@
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
 #include "SGCore/Graphics/API/IFrameBuffer.h"
 #include "SGCore/Logger/Logger.h"
+#include "SGCore/Main/CoreMain.h"
+#include "SGCore/Main/Window.h"
+
+#include <utility>
+#include <vector>
 
 SGCore::GL46CommandList::GL46CommandList(GL4Renderer& renderer) noexcept : m_renderer(renderer)
 {
@@ -25,43 +30,88 @@ void SGCore::GL46CommandList::end() noexcept
 
 void SGCore::GL46CommandList::beginRenderPass(const RenderPassBeginDesc& desc) noexcept
 {
-    if(desc.m_frameBuffer)
+    const GLuint handle = desc.m_frameBuffer ? static_cast<GLuint>(desc.m_frameBuffer->getNativeHandle()) : 0;
+    glBindFramebuffer(GL_FRAMEBUFFER, handle);
+
+    if(handle != 0 && !desc.m_colorAttachments.empty())
     {
-        desc.m_frameBuffer->bind();
-        if(!desc.m_colorAttachments.empty())
+        std::vector<GLenum> drawBuffers;
+        drawBuffers.reserve(desc.m_colorAttachments.size());
+        for(const auto attachment : desc.m_colorAttachments)
         {
-            desc.m_frameBuffer->bindAttachmentsToDrawIn(desc.m_colorAttachments);
+            drawBuffers.push_back(GL_COLOR_ATTACHMENT0 + (std::to_underlying(attachment) -
+                                                          std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0)));
         }
-    }
-    else
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glNamedFramebufferDrawBuffers(handle, static_cast<GLsizei>(drawBuffers.size()), drawBuffers.data());
     }
 
+    // viewport: explicit size, else the framebuffer's own viewport (legacy IFrameBuffer::bind semantics),
+    // else the window for the default framebuffer
     if(desc.m_width > 0 && desc.m_height > 0)
     {
         glViewport(0, 0, desc.m_width, desc.m_height);
     }
+    else if(desc.m_frameBuffer)
+    {
+        glViewport(desc.m_frameBuffer->m_viewportPosX, desc.m_frameBuffer->m_viewportPosY,
+                   desc.m_frameBuffer->m_viewportWidth, desc.m_frameBuffer->m_viewportHeight);
+    }
+    else
+    {
+        int width = 0, height = 0;
+        CoreMain::getWindow().getSize(width, height);
+        glViewport(0, 0, width, height);
+    }
 
-    GLbitfield clearMask = 0;
     if(desc.m_colorLoadOp == LoadOp::SGG_CLEAR)
     {
-        glClearColor(desc.m_clearColor.r, desc.m_clearColor.g, desc.m_clearColor.b, desc.m_clearColor.a);
-        clearMask |= GL_COLOR_BUFFER_BIT;
+        if(handle != 0 && !desc.m_colorAttachments.empty())
+        {
+            for(std::size_t i = 0; i < desc.m_colorAttachments.size(); ++i)
+            {
+                glClearNamedFramebufferfv(handle, GL_COLOR, static_cast<GLint>(i), &desc.m_clearColor[0]);
+            }
+        }
+        else
+        {
+            glClearColor(desc.m_clearColor.r, desc.m_clearColor.g, desc.m_clearColor.b, desc.m_clearColor.a);
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
     }
     if(desc.m_depthLoadOp == LoadOp::SGG_CLEAR)
     {
-        glClearDepth(desc.m_clearDepth);
-        // depth writes must be on for the clear to reach the buffer
         glDepthMask(GL_TRUE);
-        clearMask |= GL_DEPTH_BUFFER_BIT;
+        glClearNamedFramebufferfv(handle, GL_DEPTH, 0, &desc.m_clearDepth);
     }
-    if(clearMask) glClear(clearMask);
 }
 
 void SGCore::GL46CommandList::endRenderPass() noexcept
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // legacy IFrameBuffer::unbind() restores the window viewport; passes rely on it
+    int width = 0, height = 0;
+    CoreMain::getWindow().getSize(width, height);
+    glViewport(0, 0, width, height);
+}
+
+void SGCore::GL46CommandList::clearColorAttachment(std::uint32_t colorIndex, const glm::vec4& color) noexcept
+{
+    // draw-buffer index of the currently bound framebuffer (glClearBufferfv semantics)
+    glClearBufferfv(GL_COLOR, static_cast<GLint>(colorIndex), &color[0]);
+}
+
+void SGCore::GL46CommandList::clearDepthStencil(float depth, bool clearStencil, std::uint32_t stencil) noexcept
+{
+    glDepthMask(GL_TRUE);
+    if(clearStencil)
+    {
+        glClearBufferfi(GL_DEPTH_STENCIL, 0, depth, static_cast<GLint>(stencil));
+    }
+    else
+    {
+        glClearBufferfv(GL_DEPTH, 0, &depth);
+    }
 }
 
 void SGCore::GL46CommandList::bindPipeline(const Ref<IPipelineState>& pipeline) noexcept

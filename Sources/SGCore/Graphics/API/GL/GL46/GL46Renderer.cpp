@@ -12,6 +12,7 @@
 #include "SGCore/Graphics/API/IVertexBuffer.h"
 #include "SGCore/Graphics/API/IIndexBuffer.h"
 #include "RHI/GL46GPUBuffer.h"
+#include "GL46FrameBuffer.h"
 
 #include <algorithm>
 
@@ -312,4 +313,18 @@ void SGCore::GL46Renderer::renderArrayInstanced(const Ref<IVertexArray>& vertexA
 {
     if(drawLegacyArrayThroughRHI(vertexArray, meshRenderState, verticesCount, indicesCount, instancesCount)) return;
     GL4Renderer::renderArrayInstanced(vertexArray, meshRenderState, verticesCount, indicesCount, instancesCount);
+}
+
+SGCore::GL4FrameBuffer* SGCore::GL46Renderer::createFrameBuffer()
+{
+    auto* frameBuffer = new GL46FrameBuffer;
+    m_storage.m_frameBuffers.insert(frameBuffer);
+    return frameBuffer;
+}
+
+SGCore::ICommandList* SGCore::GL46Renderer::getFrameBufferCommandList() noexcept
+{
+    if(!m_device) return nullptr;
+    if(!m_frameBufferCommandList) m_frameBufferCommandList = m_device->createCommandList();
+    return m_frameBufferCommandList.get();
 }

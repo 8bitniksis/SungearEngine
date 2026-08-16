@@ -124,7 +124,7 @@ Vulkan и DX12, не ломая существующие GL-бэкенды; ед
 
 | Задача | Роль | Объём | Статус |
 |--------|------|-------|--------|
-| 1.1 Аудит `Graphics/API`: перечень GL-измов (VAO, глобальный RenderState, поимённые юниформы) и мест, где рендер-код обходит абстракцию | @Senior Graphics Engineer | M | ⬜ |
+| 1.1 Аудит `Graphics/API`: перечень GL-измов (VAO, глобальный RenderState, поимённые юниформы) и мест, где рендер-код обходит абстракцию → [RHI_AUDIT.md](./RHI_AUDIT.md) | @Senior Graphics Engineer | M | ✅ 2026-08-16 |
 | 1.2 Спроектировать целевой RHI: command lists, PSO, дескрипторы/binding model, явные барьеры; зафиксировать в SYSTEM_DESIGN | @Senior Graphics Engineer | L | ⬜ |
 | 1.3 Расширить `GAPIType` (`SG_API_TYPE_VULKAN`, `SG_API_TYPE_DX12`) и выбор бэкенда в `Main/Window`/`CoreMain` | @Senior C++ Engine Developer | S | ⬜ |
 | 1.4 Шейдерный пайплайн: свой GLSL-add-on → SPIR-V (shaderc/glslang), рефлексия (SPIRV-Reflect/Cross); решение по трансляции в DXIL для DX12 | @Senior Graphics Engineer | L | ⬜ |

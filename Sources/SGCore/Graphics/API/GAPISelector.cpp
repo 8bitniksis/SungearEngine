@@ -18,15 +18,16 @@ std::vector<SGCore::GAPIType> SGCore::GAPISelector::s_preference = SGCore::GAPIS
 std::vector<SGCore::GAPIType> SGCore::GAPISelector::getDefaultPreference() noexcept
 {
     // Order is the design intent (see docs/RHI_DESIGN.md): explicit APIs first, OpenGL as
-    // the permanent fallback. Backends that are not implemented yet are skipped at selection.
-    // GL4 stays ahead of GL46 until GL46 becomes the migrated GL backend (task 1.5):
-    // GL46Renderer::confirmSupport() failure currently closes the window instead of falling back.
+    // the permanent fallback with GL46 as its primary implementation (decision of 2026-08-17).
+    // Backends that are not implemented yet are skipped at selection. Note that a failed
+    // GL46Renderer::confirmSupport() still closes the window instead of falling back to GL4
+    // (task 1.3a).
 #if SG_PLATFORM_OS_WINDOWS
-    return { SG_API_TYPE_DX12, SG_API_TYPE_VULKAN, SG_API_TYPE_GL4, SG_API_TYPE_GL46 };
+    return { SG_API_TYPE_DX12, SG_API_TYPE_VULKAN, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
 #elif SG_PLATFORM_OS_ANDROID
     return { SG_API_TYPE_VULKAN, SG_API_TYPE_GL4 };
 #else
-    return { SG_API_TYPE_VULKAN, SG_API_TYPE_GL4, SG_API_TYPE_GL46 };
+    return { SG_API_TYPE_VULKAN, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
 #endif
 }
 

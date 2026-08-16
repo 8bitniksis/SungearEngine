@@ -7,7 +7,6 @@
 
 #include "SGCore/Graphics/API/GL/GL46/GL46Shader.h"
 #include "SGCore/Graphics/API/GL/GLVertexArray.h"
-#include "SGCore/Graphics/API/GL/GL46/GL46Texture2D.h"
 #include "SGCore/Graphics/API/GL/GL46/GL46UniformBuffer.h"
 
 #include "SGCore/Graphics/API/IRenderer.h"
@@ -19,6 +18,11 @@ namespace SGCore
 {
     class CoreMain;
 
+    /**
+     * OpenGL 4.6 backend: the GL4 implementation running on a 4.6 core context with
+     * `#version 460 core` shaders. Direct-state-access paths are introduced per object type
+     * during the RHI migration, once each is covered by the smoke test.
+     */
     class GL46Renderer : public GL4Renderer
     {
     public:
@@ -28,19 +32,11 @@ namespace SGCore
         bool confirmSupport() noexcept override;
 
         [[nodiscard]] GL46Shader* createShader() override;
-        [[nodiscard]] GL46Texture2D* createTexture2D() final;
 
         static const std::shared_ptr<GL46Renderer>& getInstance() noexcept;
-    
+
     private:
-        // Buffer for storing matrices of the currently rendered model.
-        std::shared_ptr<GL46UniformBuffer> m_modelMatricesBuffer;
-        // Buffer for storing matrices of the currently main camera.
-        std::shared_ptr<GL46UniformBuffer> m_cameraMatricesBuffer;
-        
         GL46Renderer() noexcept = default;
-        
-        static inline std::shared_ptr<GL46Renderer> m_instance;
     };
 }
 

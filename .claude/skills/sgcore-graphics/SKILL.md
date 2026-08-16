@@ -88,13 +88,20 @@ description: >-
 
 ## Состояние бэкендов
 
-- **`GL4Renderer` — рабочий**, дефолт (`#version 400`-путь; `GL46Renderer` наследует его
-  и переопределяет `confirmSupport`/`createShader`/`createTexture2D`).
-- **`GL46Renderer` сломан** (проверено смоук-тестом 2026-08-17): чёрный кадр,
-  `GL_INVALID_ENUM` при каждой загрузке текстуры (`GL46Texture2D`), геометрические
-  шейдеры batching/terrain не компилируются под `#version 460` («No input primitive type»).
-  Именно поэтому в `CoreMain` он был закомментирован. Решение «чинить или сносить» —
-  задача 1.6b плана; предложение в RHI_DESIGN — один GL-бэкенд на базе `GL4Renderer`.
+- **`GL46Renderer` — основной GL-бэкенд** (решение 2026-08-17): GL4-реализация на
+  контексте 4.6, `#version 460 core` + дефайн `SG_GLSL4`; переопределяет только
+  `confirmSupport`/`createShader`. `GL4Renderer` (`#version 400 core`) — второй в списке.
+  Смоук на gl46 и gl4 совпадает попиксельно (общий эталон `smoke_gl_1920x1080.png`).
+- Грабли, из-за которых GL46 был «сломан» до 2026-08-17: (1) `createShader()` без
+  `addDefine("SG_GLSL4")` — весь код шейдеров под `#if defined(SG_GLSL4)` исчезает,
+  стадии пустые → «No input primitive type» и чёрный кадр; **любой новый GL-бэкенд
+  обязан добавлять этот дефайн**; (2) `GL46Texture2D` — заглушка 2023 г.
+  (`glTextureParameteri(GL_GENERATE_MIPMAP)` = `GL_INVALID_ENUM`, захардкоженный
+  `GL_UNSIGNED_BYTE`, нет buffer/3D/compressed-путей) — удалена, DSA возвращать
+  пообъектно под смоук-контролем. `GL46FrameBuffer`/`GL46UniformBuffer` не используются
+  (`GL4Renderer` создаёт GL4-варианты).
+- Первым симптомом «шейдер пустой» в логе будет ошибка компиляции геометрической стадии
+  про примитивы, а не про сам код — проверять дефайны раньше, чем GLSL.
 - `Graphics/API/Vulkan/` — нерабочий скелет 2023 г., `vulkan.h` закомментирован,
   зависимости в `vcpkg.json` нет; `VkRenderer::confirmSupport()` возвращает `false`.
   Не достраивать — переписывать (этап 2).

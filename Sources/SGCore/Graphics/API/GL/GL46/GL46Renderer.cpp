@@ -6,13 +6,13 @@
 
 bool SGCore::GL46Renderer::confirmSupport() noexcept
 {
-    std::string glVersion = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    const char* versionString = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    const std::string glVersion = versionString ? versionString : "";
+
+    // "4.6.0 NVIDIA ...", "4.6 (Core Profile) Mesa ..." — only the major.minor prefix matters
     if(!glVersion.starts_with("4.6"))
     {
-        SG_LOG_I(
-              "OpenGL 4.6 is not supported!\n{0}",
-              SG_CURRENT_LOCATION_STR);
-
+        SG_LOG_E("OpenGL 4.6 is not supported! Reported version: '{}'\n{}", glVersion, SG_CURRENT_LOCATION_STR);
         return false;
     }
 
@@ -21,21 +21,15 @@ bool SGCore::GL46Renderer::confirmSupport() noexcept
 
 SGCore::GL46Shader* SGCore::GL46Renderer::createShader()
 {
+    // same shader pipeline as GL4, only the GLSL version differs: the SG_GLSL4 define selects the
+    // shader variant and is mandatory — without it every stage is preprocessed away
     auto* shader = new GL46Shader;
-    shader->m_version = "460";
+    shader->m_version = "460 core";
+    shader->addDefine(SGShaderDefineType::SGG_OTHER_DEFINE, ShaderDefine("SG_GLSL4", ""));
 
     m_storage.m_shaders.insert(shader);
 
     return shader;
-}
-
-SGCore::GL46Texture2D* SGCore::GL46Renderer::createTexture2D()
-{
-    auto* tex = new GL46Texture2D;
-
-    m_storage.m_textures.insert(tex);
-
-    return tex;
 }
 
 const std::shared_ptr<SGCore::GL46Renderer>& SGCore::GL46Renderer::getInstance() noexcept

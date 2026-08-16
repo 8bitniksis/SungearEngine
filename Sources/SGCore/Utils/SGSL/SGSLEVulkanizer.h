@@ -38,8 +38,19 @@ namespace SGCore
      */
     struct SGCORE_EXPORT SGSLEVulkanizer
     {
+        /// Dialect of the produced GLSL. The transformation is the same; only what the target
+        /// compiler accepts differs.
+        enum class Target
+        {
+            /// glslang with Vulkan rules: `layout(set = S, binding = B)`, gl_VertexIndex / gl_InstanceIndex.
+            VULKAN,
+            /// OpenGL 4.6 core GLSL: `layout(binding = B)` only (no `set`), gl_VertexID / gl_InstanceID kept.
+            OPENGL
+        };
+
         struct Config
         {
+            Target m_target = Target::VULKAN;
             std::uint32_t m_descriptorSet = 0;
             std::uint32_t m_firstBinding = 0;
             /// Prefix of the per-stage legacy blocks: `<prefix>_vertex`, `<prefix>_fragment`, ...

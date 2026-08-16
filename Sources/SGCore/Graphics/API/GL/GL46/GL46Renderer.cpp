@@ -4,6 +4,22 @@
 #include "SGCore/Memory/AssetManager.h"
 #include "SGCore/Memory/Assets/TextFileAsset.h"
 
+#include "RHI/GL46Device.h"
+
+SGCore::GL46Renderer::~GL46Renderer() = default;
+
+void SGCore::GL46Renderer::init() noexcept
+{
+    GL4Renderer::init();
+    m_device = std::make_unique<GL46Device>(*this);
+}
+
+SGCore::IDevice* SGCore::GL46Renderer::getDevice() noexcept
+{
+    return m_device.get();
+}
+
+
 bool SGCore::GL46Renderer::confirmSupport() noexcept
 {
     const char* versionString = reinterpret_cast<const char*>(glGetString(GL_VERSION));

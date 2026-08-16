@@ -380,6 +380,21 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
 
 ---
 
+## Состояние реализации (2026-08-17)
+
+- Каркас — `Sources/SGCore/Graphics/RHI/` (интерфейсы выше, 1:1 с этим
+  документом; отличия: `PipelineStateDesc::m_program` — `Ref<IShaderProgram>`
+  (RHI-объект из `IDevice::createShaderProgram`), а не `AssetRef<IShader>`;
+  `RenderPassBeginDesc` на время миграции принимает legacy-`IFrameBuffer`).
+- Эталонная реализация — GL46 (`Sources/SGCore/Graphics/API/GL/GL46/RHI/`):
+  immediate-mode командный список, VAO = vertex input в PSO, DSA-буферы,
+  рефлексия из GL program interface. Доступ — `IRenderer::getDevice()`.
+- **Единый шейдерный путь**: `SGSLEVulkanizer` с `Target::OPENGL` даёт GLSL,
+  которую GL 4.6 принимает как есть (`layout(binding=N)` без `set`, `gl_VertexID`);
+  `Target::VULKAN` — тот же код для glslang. Проверено `Tests/RHI` (`SGRHITest`).
+- Не реализовано на GL: push constants (предупреждение; фасад заменит мини-UBO),
+  `transition` — no-op по дизайну.
+
 ## Раскладка по файлам и порядок миграции
 
 Новый код живёт рядом со старым, в том же модуле (эволюция на месте, без

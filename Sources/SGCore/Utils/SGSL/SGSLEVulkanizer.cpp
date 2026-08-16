@@ -526,9 +526,9 @@ namespace
         }
     }
 
-    std::string layoutBindingText(std::uint32_t set, std::uint32_t binding) noexcept
+    std::string layoutBindingText(bool withSet, std::uint32_t set, std::uint32_t binding) noexcept
     {
-        return "set = " + std::to_string(set) + ", binding = " + std::to_string(binding);
+        return (withSet ? "set = " + std::to_string(set) + ", " : std::string()) + "binding = " + std::to_string(binding);
     }
 }
 
@@ -551,6 +551,7 @@ bool SGCore::SGSLEVulkanizer::isOpaqueType(std::string_view typeName) noexcept
 SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<Stage>& stages, const Config& config) noexcept
 {
     Report report;
+    const bool withSet = config.m_target == Target::VULKAN;
 
     std::vector<StageScan> scans;
     scans.reserve(stages.size());
@@ -771,7 +772,7 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
         std::string legacyBlockText;
         if(!legacy.m_blockName.empty())
         {
-            legacyBlockText = "layout(std140, " + layoutBindingText(config.m_descriptorSet, resources[legacy.m_blockName].m_binding) +
+            legacyBlockText = "layout(std140, " + layoutBindingText(withSet, config.m_descriptorSet, resources[legacy.m_blockName].m_binding) +
                               ") uniform " + legacy.m_blockName + "\n{\n";
             for(const auto& member : legacy.m_members)
             {
@@ -836,18 +837,18 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
 
                 if(declaration.m_explicitBinding)
                 {
-                    if(!declaration.m_layoutHasSet && config.m_descriptorSet != 0)
+                    if(withSet && !declaration.m_layoutHasSet && config.m_descriptorSet != 0)
                     {
                         edits.push_back({ declaration.m_layoutParenOpen + 1, 0, "set = " + std::to_string(config.m_descriptorSet) + ", ", 0 });
                     }
                 }
                 else if(declaration.m_layoutParenOpen != npos)
                 {
-                    edits.push_back({ declaration.m_layoutParenOpen + 1, 0, layoutBindingText(config.m_descriptorSet, entry.m_binding) + ", ", 0 });
+                    edits.push_back({ declaration.m_layoutParenOpen + 1, 0, layoutBindingText(withSet, config.m_descriptorSet, entry.m_binding) + ", ", 0 });
                 }
                 else
                 {
-                    edits.push_back({ declaration.m_begin, 0, "layout(" + layoutBindingText(config.m_descriptorSet, entry.m_binding) + ") ", 0 });
+                    edits.push_back({ declaration.m_begin, 0, "layout(" + layoutBindingText(withSet, config.m_descriptorSet, entry.m_binding) + ") ", 0 });
                 }
                 continue;
             }
@@ -891,8 +892,11 @@ SGCore::SGSLEVulkanizer::Report SGCore::SGSLEVulkanizer::vulkanize(std::vector<S
         {
             report.m_fragColorReplaced += static_cast<std::uint32_t>(replaceIdentifier(stage.m_code, "gl_FragColor", config.m_fragColorName));
         }
-        report.m_builtinsReplaced += static_cast<std::uint32_t>(replaceIdentifier(stage.m_code, "gl_VertexID", "gl_VertexIndex"));
-        report.m_builtinsReplaced += static_cast<std::uint32_t>(replaceIdentifier(stage.m_code, "gl_InstanceID", "gl_InstanceIndex"));
+        if(config.m_target == Target::VULKAN)
+        {
+            report.m_builtinsReplaced += static_cast<std::uint32_t>(replaceIdentifier(stage.m_code, "gl_VertexID", "gl_VertexIndex"));
+            report.m_builtinsReplaced += static_cast<std::uint32_t>(replaceIdentifier(stage.m_code, "gl_InstanceID", "gl_InstanceIndex"));
+        }
     }
 
     return report;

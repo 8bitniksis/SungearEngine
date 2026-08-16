@@ -31,12 +31,19 @@ namespace SGCore
     class IShader;
 
     struct IGPUObjectsStorage;
+    class IDevice;
 
     // todo: make description of funcs
     class SGCORE_EXPORT IRenderer
     {
     public:
         virtual ~IRenderer() = default;
+
+        /**
+         * RHI device of this backend (docs/RHI_DESIGN.md). nullptr while a backend has not been
+         * migrated to the RHI yet; available after init().
+         */
+        [[nodiscard]] virtual IDevice* getDevice() noexcept { return nullptr; }
 
         // Buffer for storing matrices of the currently main camera.
         Ref<IUniformBuffer> m_viewMatricesBuffer;

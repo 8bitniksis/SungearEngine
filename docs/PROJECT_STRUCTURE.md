@@ -51,7 +51,7 @@
 |--------|------------|
 | `ECS/` | Обвязка над EnTT: `Registry`, `Component`, `EntitiesPool`, визиторы компонентов |
 | `Render/` | Рендер: PBR-пайплайн (`PBRRP/`), батчинг, CSM-тени, менеджер пайплайнов |
-| `Graphics/` | Графические API-абстракции: `API/` — интерфейсы (`IRenderer`, `IShader`…), `GAPIType` + `GAPISelector` (выбор бэкенда, `SG_GAPI`), бэкенды `GL/` (рабочие), `Vulkan/` (скелет); `SPIRV/` — `SPIRVCompiler` (glslang) и `ShaderReflection` (SPIRV-Reflect) |
+| `Graphics/` | Графические API-абстракции: `API/` — интерфейсы (`IRenderer`, `IShader`…), `GAPIType` + `GAPISelector` (выбор бэкенда, `SG_GAPI`), бэкенды `GL/` (рабочие), `Vulkan/` (скелет); `SPIRV/` — `SPIRVCompiler` (glslang) и `ShaderReflection` (SPIRV-Reflect); `RHI/` — интерфейсы нового RHI (`IDevice`, `ICommandList`, `IPipelineState`…), реализация GL46 в `API/GL/GL46/RHI/` |
 | `Scene/` | Сцена, `EntityBaseInfo`, сохранение/загрузка сцен |
 | `Memory/` | `AssetManager`, ассеты (модели, аудио, атласы), пакеты ассетов |
 | `Serde/` | Сериализация/десериализация с поддержкой полиморфизма и шаринга данных |
@@ -187,6 +187,8 @@ cmake/
 |--------|---------|---------------|
 | `SGCoroTest` | `Tests/Coro/` | корутины; обычный исполняемый файл (GTest закомментирован) |
 | `SGSmokeTest` | `Tests/Smoke/` | эталонная рендер-сцена для сравнения бэкендов: захват кадра в PNG и сравнение с эталоном (см. [INSTALL.md §9](./INSTALL.md#9-тесты)) |
+| `SGShadersTest` | `Tests/Shaders/` | вулканизатор SGSL + компиляция корпуса в SPIR-V и рефлексия |
+| `SGRHITest` | `Tests/RHI/` | вертикальный срез RHI на GL46: треугольник через ICommandList, readback |
 
 Подробнее — [DEV_RULES.md → Тестирование](./DEV_RULES.md#-тестирование).
 

@@ -197,6 +197,29 @@ description: >-
 - `features/pbr/instancing.sgshader` — мёртвый: инклудит несуществующий
   `impl/glsl4/pbr/instancing.glsl` (0 стадий при трансляции).
 
+## RHI (новый слой, 2026-08-17)
+
+- Интерфейсы — `Graphics/RHI/` (`IDevice`, `ICommandList`, `ISwapchain`, `IGPUBuffer`,
+  `IShaderProgram`, `IPipelineState`/`PipelineStateDesc`, `IDescriptorSet`, `RHITypes.h`);
+  доступ — `CoreMain::getRenderer()->getDevice()` (nullptr у бэкендов без RHI; у GL46 —
+  после `init()`). Дизайн — `docs/RHI_DESIGN.md`.
+- GL46-реализация — `Graphics/API/GL/GL46/RHI/`: команды исполняются немедленно;
+  `bindPipeline` применяет `RenderState`/`BlendingState`/`MeshRenderState` через
+  кеширующие `GL4Renderer::use*` (общее «текущее состояние» с legacy-проходами),
+  `glUseProgram`, `glBindVertexArray`; VAO принадлежит PSO и хранит только формат
+  (DSA `glVertexArrayAttribFormat`), буферы — `bindVertexBuffer` → `glVertexArrayVertexBuffer`
+  (нужен **после** `bindPipeline`). Дескрипторный набор = список `glBindBufferBase`/
+  `glBindTextureUnit`, номер набора игнорируется (плоское пространство GL).
+- **Единый шейдерный путь**: `SGSLEVulkanizer::Target::OPENGL` — GLSL с
+  `layout(binding=N)` без `set`, `gl_VertexID` сохранён; GL 4.6 принимает как есть.
+  `GL46ShaderProgram` компилирует его (`#version 460 core` приписывается, если нет) и
+  **рефлектит через program interface query** (`GL_UNIFORM_BLOCK`/`GL_UNIFORM`/
+  `GL_PROGRAM_INPUT`) — на GL это источник истины, glslang не нужен. Грабли: члены
+  именованного блока GL отдаёт как `Block.member` — префикс срезается; массивы — `name[0]`.
+- Push constants на GL не реализованы (предупреждение) — фасад заменит мини-UBO;
+  `transition` — no-op; `destroyDeferred` — просто сброс ссылки; `waitIdle` = `glFinish`.
+- Проверка — `Tests/RHI` (`SGRHITest --gapi gl46`): точные пиксели после readback.
+
 ## Смоук-тест
 
 - `Tests/Smoke` → `SGSmokeTest` (`--gapi`, `--frames`, `--output`, `--reference`,

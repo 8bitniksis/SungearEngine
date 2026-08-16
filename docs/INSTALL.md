@@ -244,6 +244,20 @@ SGShadersTest --corpus E:/Github/SungearEngine --out vulkanized --spirv  # + SPI
 build-dir, не из корня репозитория. Зависимости `glslang`/`spirv-reflect`
 ставятся vcpkg автоматически при конфигурации (добавлены 2026-08-17).
 
+### Вертикальный срез RHI (`SGRHITest`)
+
+Рисует треугольник через новый RHI (`IDevice`/`ICommandList`) в GL46-бэкенде:
+вулканизированный шейдер, UBO по рефлексии, PSO, readback с проверкой точных
+значений пикселей. Нужны окно и GPU.
+
+```bash
+cmake --build <binary-dir> --target SGRHITest
+cd <binary-dir>/Tests/RHI          # рядом должна лежать SGCore.dll (§6)
+SGRHITest --gapi gl46
+```
+
+Код выхода `0` — PASS. Проверено 2026-08-17 (NVIDIA, GL 4.6).
+
 ### Смоук-сцена рендера (`SGSmokeTest`)
 
 Эталонная сцена для сравнения графических бэкендов: PBR-тела, CSM-тени,

@@ -14,9 +14,12 @@
 
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
 
+#include <memory>
+
 namespace SGCore
 {
     class CoreMain;
+    class GL46Device;
 
     /**
      * OpenGL 4.6 backend: the GL4 implementation running on a 4.6 core context with
@@ -29,13 +32,20 @@ namespace SGCore
         GL46Renderer(const GL46Renderer&) = delete;
         GL46Renderer(GL46Renderer&&) = delete;
 
+        ~GL46Renderer() override;
+
+        void init() noexcept override;
         bool confirmSupport() noexcept override;
 
         [[nodiscard]] GL46Shader* createShader() override;
 
+        [[nodiscard]] IDevice* getDevice() noexcept override;
+
         static const std::shared_ptr<GL46Renderer>& getInstance() noexcept;
 
     private:
+        std::unique_ptr<GL46Device> m_device;
+
         GL46Renderer() noexcept = default;
     };
 }

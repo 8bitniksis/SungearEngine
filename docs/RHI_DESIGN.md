@@ -404,6 +404,12 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
   проходы не менялись, данные уже текут по Vulkan-модели (23/23 программ, смоук 0 %).
   Биндинги вулканизатора начинаются с 8: точки 1–4 заняты legacy-`IUniformBuffer`
   (`glUniformBlockBinding` перекрывает `layout(binding)` — допустимо в GL).
+- **Мигрированы меши** (шаг 3): `renderMeshData` на GL46 рисует через RHI —
+  `IMeshData::m_rhi` (буферы + `VertexInputDesc`, строится из `IVertexBuffer::getAttributes()`,
+  которые теперь записывает базовый класс), PSO из программы привязанного legacy-шейдера
+  (`GL46LegacyProgram` — не владеющий адаптер над `GL46ProgramBase`), кешированных
+  состояний и раскладки меша; `renderArray`/instanced (7 точек: батчинг, экранные
+  квады) — пока legacy.
 - Правило миграции прохода: legacy-реализация остаётся как откат (`GL46Renderer`
   падает на неё, если RHI-проход не инициализировался), проход считается
   перенесённым только при 0 % расхождений смоука на GL46.

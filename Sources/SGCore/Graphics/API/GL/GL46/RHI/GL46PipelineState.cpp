@@ -4,7 +4,7 @@
 
 #include "GL46PipelineState.h"
 
-#include "GL46ShaderProgram.h"
+#include "GL46ProgramBase.h"
 #include "SGCore/Graphics/API/GL/GLGraphicsTypesCaster.h"
 #include "SGCore/Logger/Logger.h"
 
@@ -67,7 +67,7 @@ SGCore::GL46PipelineState::~GL46PipelineState()
 
 GLuint SGCore::GL46PipelineState::getProgram() const noexcept
 {
-    const auto* program = static_cast<const GL46ShaderProgram*>(m_desc.m_program.get());
+    const auto* program = static_cast<const GL46ProgramBase*>(m_desc.m_program.get());
     return program ? program->getHandle() : 0;
 }
 

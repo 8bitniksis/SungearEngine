@@ -7,6 +7,8 @@
 
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
 #include "SGCore/Graphics/API/GL/GL46/RHI/GL46ShaderProgram.h"
+#include "SGCore/Graphics/API/GL/GL46/RHI/GL46ProgramBase.h"
+#include "SGCore/Graphics/API/GL/GL46/GL46Renderer.h"
 #include "SGCore/Main/CoreMain.h"
 #include "SGCore/Utils/SGSL/SGSLESubShader.h"
 #include "SGCore/Utils/SGSL/SGSLEVulkanizer.h"
@@ -91,6 +93,7 @@ void SGCore::GL46Shader::doCompile()
     m_cachedLocations.clear();
     destroyLegacyBlocks();
     m_reflection = ShaderReflection { };
+    m_rhiProgram = nullptr;
 
     auto shaderAnalyzedFile = getAnalyzedFile();
     auto fileAsset = getFile();
@@ -296,6 +299,7 @@ bool SGCore::GL46Shader::isLegacyMember(std::string_view uniformName) const noex
 void SGCore::GL46Shader::bind() const noexcept
 {
     glUseProgram(m_programHandle);
+    if(m_useRHIUniforms) GL46Renderer::getInstance()->setCurrentLegacyShader(const_cast<GL46Shader*>(this));
 
     for(const auto& block : m_legacyBlocks)
     {
@@ -504,4 +508,14 @@ void SGCore::GL46Shader::useMaterialFactors(const SGCore::IMaterial* material)
     useFloat("u_materialShininess", material->getShininess());
     useFloat("u_materialMetallicFactor", material->getMetallicFactor());
     useFloat("u_materialRoughnessFactor", material->getRoughnessFactor());
+}
+
+SGCore::Ref<SGCore::IShaderProgram> SGCore::GL46Shader::getRHIProgram() noexcept
+{
+    if(m_programHandle == 0) return nullptr;
+    if(!m_rhiProgram)
+    {
+        m_rhiProgram = MakeRef<GL46LegacyProgram>(m_programHandle, m_reflection);
+    }
+    return m_rhiProgram;
 }

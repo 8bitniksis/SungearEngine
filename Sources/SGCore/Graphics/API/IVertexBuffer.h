@@ -68,13 +68,26 @@ namespace SGCore
 
         virtual void setUsage(SGGUsage) = 0;
 
-        virtual void addAttribute(std::uint32_t location,
-                                  std::int32_t scalarsCount,
-                                  SGGDataType dataType,
-                                  bool isNormalized,
-                                  std::int32_t stride,
-                                  std::uint64_t offsetInStruct,
-                                  std::int32_t divisor) noexcept = 0;
+        /// Backend-agnostic record of one attribute, kept so the RHI can build a VertexInputDesc
+        /// for legacy meshes without asking the GL objects.
+        struct AttributeDesc
+        {
+            std::uint32_t m_location { };
+            std::int32_t m_scalarsCount { };
+            SGGDataType m_dataType = SGGDataType::SGG_FLOAT;
+            bool m_isNormalized { };
+            std::int32_t m_stride { };
+            std::uint64_t m_offsetInStruct { };
+            std::int32_t m_divisor { };
+        };
+
+        void addAttribute(std::uint32_t location,
+                          std::int32_t scalarsCount,
+                          SGGDataType dataType,
+                          bool isNormalized,
+                          std::int32_t stride,
+                          std::uint64_t offsetInStruct,
+                          std::int32_t divisor) noexcept;
 
         void addAttribute(std::uint32_t location,
                           std::int32_t scalarsCount,
@@ -86,9 +99,19 @@ namespace SGCore
         virtual void useAttributes() const noexcept = 0;
 
         const std::vector<std::uint8_t>& getData() const noexcept;
+        [[nodiscard]] const std::vector<AttributeDesc>& getAttributes() const noexcept { return m_attributesDescs; }
 
     protected:
         std::vector<std::uint8_t> m_data;
+        std::vector<AttributeDesc> m_attributesDescs;
+
+        virtual void addAttributeImpl(std::uint32_t location,
+                                      std::int32_t scalarsCount,
+                                      SGGDataType dataType,
+                                      bool isNormalized,
+                                      std::int32_t stride,
+                                      std::uint64_t offsetInStruct,
+                                      std::int32_t divisor) noexcept = 0;
         IVertexArray* m_parentVertexArray { };
 
         virtual void subDataOnGAPISide(const void* data, const size_t& bytesCount, const size_t& bytesOffset, bool isPutData) = 0;

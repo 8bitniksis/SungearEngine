@@ -12,6 +12,7 @@
 #include "GL46PipelineState.h"
 #include "GL46ShaderProgram.h"
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
+#include "SGCore/Logger/Logger.h"
 
 SGCore::GL46Device::GL46Device(GL4Renderer& renderer) noexcept : m_renderer(renderer)
 {

@@ -21,6 +21,8 @@ namespace SGCore
     class CoreMain;
     class GL46Device;
     class ScreenBlit;
+    class ICommandList;
+    class IMeshData;
 
     /**
      * OpenGL 4.6 backend: the GL4 implementation running on a 4.6 core context with
@@ -47,12 +49,24 @@ namespace SGCore
         void renderTextureOnScreen(const ITexture2D* texture, bool flipOutput,
                                    int x, int y, int width, int height) noexcept override;
 
+        /// Meshes go through the RHI: IGPUBuffer mirror of the mesh, PSO from the bound legacy
+        /// shader + cached states + the mesh vertex layout, draw via ICommandList. Falls back to
+        /// the legacy VAO path when no legacy shader is bound or the mirror can not be built.
+        void renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState) override;
+
+        /// Called by GL46Shader::bind(): the shader whose program the next RHI draw uses.
+        void setCurrentLegacyShader(GL46Shader* shader) noexcept { m_currentLegacyShader = shader; }
+
         static const std::shared_ptr<GL46Renderer>& getInstance() noexcept;
 
     private:
         std::unique_ptr<GL46Device> m_device;
         std::unique_ptr<ScreenBlit> m_screenBlit;
         bool m_screenBlitInitTried { };
+        GL46Shader* m_currentLegacyShader { };
+        Ref<ICommandList> m_meshCommandList;
+
+        [[nodiscard]] bool prepareMeshRHI(IMeshData& meshData) noexcept;
 
         GL46Renderer() noexcept = default;
     };

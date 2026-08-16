@@ -23,7 +23,7 @@ namespace SGCore
 
         void setUsage(SGGUsage) noexcept final;
 
-        void addAttribute(std::uint32_t location,
+        void addAttributeImpl(std::uint32_t location,
                           std::int32_t scalarsCount,
                           SGGDataType dataType,
                           bool isNormalized,

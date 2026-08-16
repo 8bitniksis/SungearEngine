@@ -241,6 +241,14 @@ description: >-
   стадиях пишется во все блоки). Сэмплеры (`useTextureBlock`, `useTexture`) — по-прежнему
   `glUniform1i`: `layout(binding)` у сэмплера — лишь начальное значение, glUniform его перекрывает.
   `bind()` = `glUseProgram` + `glBindBufferBase` legacy-блоков. GL4Renderer этот режим не включает.
+- **Меши через RHI** (шаг 3): `IVertexBuffer::addAttribute` (7 арг.) теперь не виртуальный —
+  записывает `AttributeDesc` и зовёт `addAttributeImpl` (это переопределяют GL/Vk-буферы);
+  `IMeshData::m_rhi` (буферы, `VertexInputDesc`, `m_prepared`) сбрасывается в `prepare()`/`destroy()`;
+  `GL46Shader::bind()` регистрирует себя в `GL46Renderer::setCurrentLegacyShader`, а
+  `renderMeshData` строит PSO из `shader->getRHIProgram()` (`GL46LegacyProgram`, не владеет
+  хендлом) + `m_cachedRenderState` + `meshRenderState` + `m_rhi.m_vertexInput`. Слот 0 — `Vertex`
+  (stride `sizeof(Vertex)`), слоты 1.. — наборы цветов. Мешей без привязанного `GL46Shader`
+  (или на GL4) рисуются legacy VAO-путём.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
 
@@ -270,3 +278,6 @@ description: >-
 - `Ref<T>` = `std::shared_ptr<T>` из `Main/CoreGlobals.h` (нет `Utils/Ref.h`).
 - Сборка тянет ANTLR-регенерацию по mtime (нужен `java`); она меняет только путь в
   заголовке 12 файлов `UI/ANTLR4CSS3Generated/` — откатывать перед коммитом.
+- **После правки заголовков SGCore пересобирать все тестовые exe** и класть рядом свежую
+  `SGCore.dll`: старый exe + новая DLL = «Run-Time Check Failure #2 … stack corrupted»
+  (2026-08-17: `SGRHITest` со старым размером `SGSLEVulkanizer::Report`). Это ABI, не баг кода.

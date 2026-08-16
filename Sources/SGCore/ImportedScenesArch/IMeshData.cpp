@@ -34,6 +34,9 @@ SGCore::IMeshData::IMeshData()
 
 void SGCore::IMeshData::prepare()
 {
+    // any RHI mirror built from the previous data is stale now
+    m_rhi = RHIData { };
+
     m_vertexArray = std::shared_ptr<IVertexArray>(CoreMain::getRenderer()->createVertexArray());
     m_vertexArray->create();
     m_vertexArray->bind();
@@ -84,6 +87,8 @@ void SGCore::IMeshData::prepare()
 
 void SGCore::IMeshData::destroy() noexcept
 {
+    m_rhi = RHIData { };
+
     if(m_vertexArray) m_vertexArray->destroy();
 
     for(const auto& colorsBuf : m_verticesColorsBuffers)

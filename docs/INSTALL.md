@@ -310,6 +310,7 @@ GTest заявлен в `vcpkg.json`, но в `Tests/Coro/CMakeLists.txt` зак
 | Ошибки про макрос `ERROR` при сборке с ANTLR4 на Windows | Конфликт WinAPI (wingdi.h) с `ParseTreeType::ERROR` | Уже закрыто: `NOGDI`, `NOMINMAX`, `WIN32_LEAN_AND_MEAN` определены в корневом CMake — не удалять |
 | MSVC: `fatal error C1128` (too many sections) | Большие объектники | Уже закрыто флагом `/bigobj` в корневом CMake |
 | Кириллица в консоли выводится мусором | Кодировка терминала Windows | `[Console]::OutputEncoding=[Text.Encoding]::UTF8` |
+| Тест падает с диалогом «Run-Time Check Failure #2 — Stack around the variable … was corrupted» | exe теста собран до изменения заголовков SGCore, а `SGCore.dll` — после: расхождение раскладки структур (ABI). Классический случай — struct, возвращаемый по значению из DLL, вырос | Пересобрать **все** тестовые exe после правки заголовков (`--target SGRHITest SGShadersTest SGSmokeTest SGCoroTest`), скопировать свежую `SGCore.dll` рядом с каждым |
 
 ---
 

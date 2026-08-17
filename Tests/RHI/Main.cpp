@@ -16,6 +16,7 @@
 #include "SGCore/Graphics/API/GAPISelector.h"
 #include "SGCore/Graphics/API/IFrameBuffer.h"
 #include "SGCore/Graphics/API/IRenderer.h"
+#include "SGCore/Graphics/API/ITexture2D.h"
 #include "SGCore/Graphics/RHI/IDevice.h"
 #include "SGCore/Main/CoreMain.h"
 #include "SGCore/Main/Window.h"
@@ -209,6 +210,41 @@ namespace
         std::printf("center=(%d,%d,%d,%d) corner=(%d,%d,%d,%d)\n", center.r, center.g, center.b, center.a, corner.r, corner.g, corner.b, corner.a);
         check(center.r == 0 && center.g >= 126 && center.g <= 129 && center.b == 0 && center.a == 255, "center pixel is green * tint (0, ~128, 0)");
         check(corner.r == 0 && corner.g == 0 && corner.b == 255 && corner.a == 255, "corner pixel is the clear color");
+
+        // ---- legacy framebuffer facade: bind -> clear -> unbind on the renderer's shared command
+        // list, then read back. This is the path every engine render pass takes, and it is the one
+        // that leaves the smoke scene empty on Vulkan, so it gets its own fast reproduction here.
+        {
+            SGCore::Ref<SGCore::IFrameBuffer> facadeBuffer(SGCore::CoreMain::getRenderer()->createFrameBuffer());
+            facadeBuffer->setSize(size, size);
+            facadeBuffer->create();
+            facadeBuffer->bind();
+            facadeBuffer->addAttachment(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0,
+                                        SGGColorFormat::SGG_RGBA, SGGColorInternalFormat::SGG_RGBA8, SGGDataType::SGG_UNSIGNED_BYTE, 0, 0);
+            facadeBuffer->unbind();
+
+            // the clear colour a pass would use
+            if(const auto attachment = facadeBuffer->getAttachment(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0))
+            {
+                attachment->m_clearColor = { 1.0f, 0.0f, 0.0f, 1.0f };
+            }
+
+            facadeBuffer->bind();
+            facadeBuffer->bindAttachmentsToDrawIn(std::vector<SGFrameBufferAttachmentType> { SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0 });
+            facadeBuffer->clearAttachment(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0);
+            facadeBuffer->unbind();
+
+            SGCore::AttachmentReadback facadeReadback;
+            const bool facadeRead = facadeBuffer->readAttachmentPixels(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0, facadeReadback);
+            check(facadeRead && !facadeReadback.m_data.empty(), "legacy framebuffer facade readback works");
+            if(facadeRead && facadeReadback.m_data.size() >= 4)
+            {
+                const glm::ivec4 facadePixel(facadeReadback.m_data[0], facadeReadback.m_data[1], facadeReadback.m_data[2], facadeReadback.m_data[3]);
+                std::printf("facade clear pixel=(%d,%d,%d,%d)\n", facadePixel.r, facadePixel.g, facadePixel.b, facadePixel.a);
+                check(facadePixel.r == 255 && facadePixel.g == 0 && facadePixel.b == 0 && facadePixel.a == 255,
+                      "clear issued through the framebuffer facade reaches the attachment");
+            }
+        }
 
         // ---- screen blit (first migrated pass): the attachment onto the window at 1:1, read the window back
         auto* renderer = SGCore::CoreMain::getRenderer().get();

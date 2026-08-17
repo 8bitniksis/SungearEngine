@@ -461,6 +461,10 @@ VkDescriptorSet SGCore::VulkanCommandList::materializeSet(SetSlot& slot, std::ui
             write.pBufferInfo = &bufferInfos.back();
             m_submission.m_keepAlive.push_back(entry.m_buffer);
         }
+        else if(entry.m_texelBufferView != VK_NULL_HANDLE)
+        {
+            write.pTexelBufferView = &entry.m_texelBufferView;
+        }
         else if(entry.m_vulkanTexture || entry.m_texture)
         {
             const auto* vkTexture = entry.m_texture ? dynamic_cast<const VkTexture2D*>(entry.m_texture.get()) : nullptr;

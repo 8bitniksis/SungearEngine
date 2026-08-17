@@ -272,6 +272,20 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet(
         }
     }
 
+    // A draw whose declared descriptor was never written is undefined behaviour and the driver may
+    // drop it outright, so every texel buffer the program declares gets at least the dummy: the
+    // passes bind a real one only for animated meshes (u_bonesMatricesUniformBuffer).
+    for(const auto& binding : m_reflection.m_bindings)
+    {
+        if(binding.m_type != ShaderDescriptorType::UNIFORM_TEXEL_BUFFER &&
+           binding.m_type != ShaderDescriptorType::STORAGE_TEXEL_BUFFER) continue;
+
+        if(const auto view = VkRenderer::getInstance()->getDummyTexelBufferView(); view != VK_NULL_HANDLE)
+        {
+            static_cast<VulkanDescriptorSet*>(m_descriptorSet.get())->setTexelBuffer(binding.m_binding, view);
+        }
+    }
+
     // join the two halves of the unit model: sampler name -> unit (recorded here) -> texture (VulkanTextureUnits)
     for(const auto& binding : m_reflection.m_bindings)
     {

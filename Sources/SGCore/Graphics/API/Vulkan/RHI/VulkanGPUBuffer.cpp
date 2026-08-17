@@ -15,7 +15,12 @@ VkBufferUsageFlags SGCore::VulkanGPUBuffer::toVkUsage(GPUBufferUsage usage) noex
     if(hasUsage(usage, GPUBufferUsage::SGG_VERTEX_BUFFER)) flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if(hasUsage(usage, GPUBufferUsage::SGG_INDEX_BUFFER)) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     if(hasUsage(usage, GPUBufferUsage::SGG_UNIFORM_BUFFER)) flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    if(hasUsage(usage, GPUBufferUsage::SGG_STORAGE_BUFFER)) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    // the engine's storage-ish buffers are read by shaders as samplerBuffer (TBO), which on Vulkan is
+    // a uniform texel buffer, so the bit rides along with the storage usage
+    if(hasUsage(usage, GPUBufferUsage::SGG_STORAGE_BUFFER))
+    {
+        flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    }
     if(hasUsage(usage, GPUBufferUsage::SGG_TRANSFER_SRC)) flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     if(hasUsage(usage, GPUBufferUsage::SGG_TRANSFER_DST)) flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     return flags;

@@ -14,11 +14,16 @@
 #include <stacktrace>
 #include <vector>
 #include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
 
 #include "SGCore/Graphics/API/GAPISelector.h"
 #include "SGCore/Graphics/API/IFrameBuffer.h"
 #include "SGCore/Graphics/API/IRenderer.h"
+#include "SGCore/Graphics/API/IShader.h"
 #include "SGCore/Graphics/API/ITexture2D.h"
+#include "SGCore/ImportedScenesArch/IMeshData.h"
+#include "SGCore/Graphics/API/IUniformBuffer.h"
+#include "SGCore/Memory/AssetManager.h"
 #include "SGCore/Graphics/RHI/IDevice.h"
 #include "SGCore/Main/CoreMain.h"
 #include "SGCore/Main/Window.h"
@@ -64,6 +69,8 @@ namespace
         "in vec3 vs_color;\n"
         "uniform vec4 u_tint;\n"
         "void main() { gl_FragColor = vec4(vs_color, 1.0) * u_tint; }\n";
+
+    void runLegacyDrawSlice(const SGCore::Ref<SGCore::IFrameBuffer>& sourceFrameBuffer);
 
     void runSlice()
     {
@@ -241,6 +248,9 @@ namespace
         check(center.r == 0 && center.g >= 126 && center.g <= 129 && center.b == 0 && center.a == 255, "center pixel is green * tint (0, ~128, 0)");
         check(corner.r == 0 && corner.g == 0 && corner.b == 255 && corner.a == 255, "corner pixel is the clear color");
 
+        // ---- the engine's own drawing path: legacy shader + renderMeshData through the facade
+        runLegacyDrawSlice(frameBuffer);
+
         // ---- legacy framebuffer facade: bind -> clear -> unbind on the renderer's shared command
         // list, then read back. This is the path every engine render pass takes, and it is the one
         // that leaves the smoke scene empty on Vulkan, so it gets its own fast reproduction here.
@@ -394,6 +404,93 @@ namespace
                                  std::abs(pixel.b - want.b) <= 1 && std::abs(pixel.a - want.a) <= 1;
             check(matches, "clears survive a frame-shaped sequence of framebuffer binds");
         }
+    }
+
+    /// The last untested link of the engine's real drawing path: a legacy IShader (an actual engine
+    /// .sgshader, compiled through the backend's facade) drawing a legacy IMeshData with
+    /// IRenderer::renderMeshData into a framebuffer opened by the framebuffer facade. Everything
+    /// below this (device, command list, framebuffer facade, reflection) is already covered; the
+    /// smoke scene renders nothing on Vulkan, so the failure has to be here.
+    void runLegacyDrawSlice(const SGCore::Ref<SGCore::IFrameBuffer>& sourceFrameBuffer)
+    {
+        auto* renderer = SGCore::CoreMain::getRenderer().get();
+        constexpr int size = 64;
+
+        const auto screenShader = renderer->m_screenShader;
+        check(static_cast<bool>(screenShader), "engine screen shader is loaded");
+        if(!screenShader) return;
+
+        // full-screen quad, built the same way IRenderer::init() builds its own
+        SGCore::Ref<SGCore::IMeshData> quad(renderer->createMeshData());
+        quad->m_vertices.resize(4);
+        quad->m_vertices[0] = { .m_position = { -1, -1, 0 }, .m_uv = { 0, 0, 0 }, .m_normal = { 0, 1, 0 } };
+        quad->m_vertices[1] = { .m_position = { -1,  1, 0 }, .m_uv = { 0, 1, 0 }, .m_normal = { 0, 1, 0 } };
+        quad->m_vertices[2] = { .m_position = {  1,  1, 0 }, .m_uv = { 1, 1, 0 }, .m_normal = { 0, 1, 0 } };
+        quad->m_vertices[3] = { .m_position = {  1, -1, 0 }, .m_uv = { 1, 0, 0 }, .m_normal = { 0, 1, 0 } };
+        quad->m_indices = { 0, 2, 1, 0, 3, 2 };
+        quad->prepare();
+
+        // shaped like a camera's layers framebuffer: several colour attachments plus depth, which is
+        // what the geometry pass renders into
+        SGCore::Ref<SGCore::IFrameBuffer> target(renderer->createFrameBuffer());
+        target->setSize(size, size);
+        target->create();
+        target->bind();
+        std::vector<SGFrameBufferAttachmentType> drawIn;
+        for(int i = 0; i < 8; ++i)
+        {
+            const auto type = static_cast<SGFrameBufferAttachmentType>(
+                std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + i);
+            target->addAttachment(type, SGGColorFormat::SGG_RGBA, SGGColorInternalFormat::SGG_RGBA8,
+                                  SGGDataType::SGG_UNSIGNED_BYTE, 0, 0);
+            drawIn.push_back(type);
+        }
+        target->addAttachment(SGFrameBufferAttachmentType::SGG_DEPTH_ATTACHMENT0,
+                              SGGColorFormat::SGG_DEPTH_COMPONENT, SGGColorInternalFormat::SGG_DEPTH_COMPONENT32,
+                              SGGDataType::SGG_FLOAT, 0, 0);
+        target->unbind();
+
+        SGCore::MeshRenderState quadState;
+        quadState.m_useFacesCulling = false;
+        quadState.m_useIndices = true;
+
+        target->bind();
+        target->bindAttachmentsToDrawIn(drawIn);
+        target->clear();
+
+        screenShader->bind();
+        screenShader->useInteger("u_flipOutput", 0);
+        // the source of the blit: the attachment the triangle slice rendered
+        screenShader->useTextureBlock("u_bufferToDisplay", 0);
+        if(const auto source = sourceFrameBuffer->getAttachment(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0))
+        {
+            source->bind(0);
+        }
+
+        renderer->renderMeshData(quad.get(), quadState);
+        target->unbind();
+
+        SGCore::AttachmentReadback readback;
+        if(!target->readAttachmentPixels(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0, readback) || readback.m_data.size() < 4)
+        {
+            check(false, "legacy draw readback works");
+            return;
+        }
+
+        auto pixel = [&](int x, int y) {
+            const std::size_t index = (static_cast<std::size_t>(y) * size + x) * 4;
+            return glm::ivec4(readback.m_data[index], readback.m_data[index + 1], readback.m_data[index + 2], readback.m_data[index + 3]);
+        };
+        const auto center = pixel(size / 2, size / 2 - 4);
+        const auto corner = pixel(1, size - 2);
+        std::printf("legacy draw: center=(%d,%d,%d,%d) corner=(%d,%d,%d,%d)\n",
+                    center.r, center.g, center.b, center.a, corner.r, corner.g, corner.b, corner.a);
+
+        // the quad samples the source attachment 1:1, so the result must reproduce it
+        check(center.g >= 126 && center.g <= 129 && center.r == 0 && center.b == 0,
+              "legacy IShader + renderMeshData reproduces the sampled center pixel");
+        check(corner.b == 255 && corner.r == 0 && corner.g == 0,
+              "legacy IShader + renderMeshData reproduces the sampled corner pixel");
     }
 
     void onInit()

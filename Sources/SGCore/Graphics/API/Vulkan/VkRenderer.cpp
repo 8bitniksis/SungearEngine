@@ -47,6 +47,12 @@ void SGCore::VkRenderer::shutdown() noexcept
 
     if(m_device) m_device->waitIdle();
     m_screenBlit.reset();
+    if(m_dummyTexelBufferView != VK_NULL_HANDLE)
+    {
+        vkDestroyBufferView(m_context->m_device, m_dummyTexelBufferView, nullptr);
+        m_dummyTexelBufferView = VK_NULL_HANDLE;
+    }
+    m_dummyTexelBuffer.reset();
     m_dummyTexture.reset();
     m_frameBufferCommandList.reset();
     m_device.reset();
@@ -313,6 +319,32 @@ const SGCore::Ref<SGCore::VulkanTexture>& SGCore::VkRenderer::getDummyTexture() 
     });
 
     return m_dummyTexture;
+}
+
+VkBufferView SGCore::VkRenderer::getDummyTexelBufferView() noexcept
+{
+    if(m_dummyTexelBufferView != VK_NULL_HANDLE || !m_device) return m_dummyTexelBufferView;
+
+    GPUBufferDesc desc;
+    desc.m_size = 4 * sizeof(float);
+    desc.m_usage = GPUBufferUsage::SGG_STORAGE_BUFFER;
+    desc.m_access = GPUMemoryAccess::SGG_HOST_VISIBLE;
+    desc.m_debugName = "dummy_texel_buffer";
+    m_dummyTexelBuffer = m_device->createBuffer(desc);
+    if(!m_dummyTexelBuffer) return m_dummyTexelBufferView;
+
+    const float zeros[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    m_dummyTexelBuffer->write(zeros, sizeof(zeros));
+
+    VkBufferViewCreateInfo viewInfo { };
+    viewInfo.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
+    viewInfo.buffer = static_cast<VulkanGPUBuffer*>(m_dummyTexelBuffer.get())->getHandle();
+    viewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    viewInfo.offset = 0;
+    viewInfo.range = VK_WHOLE_SIZE;
+    SG_VK_CHECK(vkCreateBufferView(m_context->m_device, &viewInfo, nullptr, &m_dummyTexelBufferView));
+
+    return m_dummyTexelBufferView;
 }
 
 SGCore::ICommandList* SGCore::VkRenderer::getFrameBufferCommandList() noexcept

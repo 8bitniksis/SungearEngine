@@ -34,6 +34,8 @@ namespace SGCore
             /// Set when the caller already holds the backend texture (VkShader resolving texture
             /// units); takes precedence over m_texture, which needs a VkTexture2D to unwrap.
             Ref<VulkanTexture> m_vulkanTexture;
+            /// Uniform texel buffer (a samplerBuffer in GLSL); the set does not own the view.
+            VkBufferView m_texelBufferView = VK_NULL_HANDLE;
             std::uint32_t m_arrayIndex { };
         };
 
@@ -48,6 +50,9 @@ namespace SGCore
 
         /// Vulkan-only overload: binds a backend texture without going through a legacy facade.
         void setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex = 0) noexcept;
+
+        /// Vulkan-only: binds a uniform texel buffer view (GLSL samplerBuffer).
+        void setTexelBuffer(std::uint32_t binding, VkBufferView view, std::uint32_t arrayIndex = 0) noexcept;
 
         /// (binding, arrayIndex) -> entry
         [[nodiscard]] const std::map<std::pair<std::uint32_t, std::uint32_t>, Entry>& getEntries() const noexcept { return m_entries; }

@@ -50,6 +50,18 @@ void SGCore::VulkanDescriptorSet::setVulkanTexture(std::uint32_t binding, const 
     ++m_version;
 }
 
+void SGCore::VulkanDescriptorSet::setTexelBuffer(std::uint32_t binding, VkBufferView view, std::uint32_t arrayIndex) noexcept
+{
+    auto& entry = m_entries[{ binding, arrayIndex }];
+    // re-binding the same view every frame must not invalidate the set (see setVulkanTexture)
+    if(entry.m_texelBufferView == view && !entry.m_buffer && !entry.m_texture && !entry.m_vulkanTexture) return;
+
+    entry = { };
+    entry.m_texelBufferView = view;
+    entry.m_arrayIndex = arrayIndex;
+    ++m_version;
+}
+
 void SGCore::VulkanDescriptorSet::setCubemap(std::uint32_t binding, const Ref<ICubemapTexture>& texture) noexcept
 {
     auto& entry = m_entries[{ binding, 0 }];

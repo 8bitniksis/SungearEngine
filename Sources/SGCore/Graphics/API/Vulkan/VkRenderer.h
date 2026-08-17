@@ -98,6 +98,10 @@ namespace SGCore
         /// has no texture of that slot (on GL such a sampler simply reads unit 0). This stands in.
         [[nodiscard]] const Ref<VulkanTexture>& getDummyTexture() noexcept;
 
+        /// A one-element uniform texel buffer for samplerBuffer descriptors the passes leave unbound
+        /// (bones data on a non-animated mesh). VK_NULL_HANDLE before the device exists.
+        [[nodiscard]] VkBufferView getDummyTexelBufferView() noexcept;
+
         /// The command list legacy VkFrameBuffer::bind()/unbind() record into (one per renderer).
         [[nodiscard]] ICommandList* getFrameBufferCommandList() noexcept;
         [[nodiscard]] const Ref<ICommandList>& getFrameBufferCommandListRef() noexcept;
@@ -119,6 +123,8 @@ namespace SGCore
 
         VkShader* m_currentLegacyShader { };
         Ref<VulkanTexture> m_dummyTexture;
+        Ref<IGPUBuffer> m_dummyTexelBuffer;
+        VkBufferView m_dummyTexelBufferView = VK_NULL_HANDLE;
 
         /// Vulkan has no global pipeline state: the passes' use*State() calls are remembered here
         /// and folded into the PSO of the next draw, as GL46 does with its cached state.

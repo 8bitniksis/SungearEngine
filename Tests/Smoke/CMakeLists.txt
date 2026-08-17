@@ -2,7 +2,7 @@ include(../../cmake/utils.cmake)
 
 project(SGSmokeTest)
 
-set(SGPROJECT_SOURCES Main.cpp SmokeApp.cpp SmokeApp.h ImageCompare.cpp ImageCompare.h)
+set(SGPROJECT_SOURCES Main.cpp SmokeApp.cpp SmokeApp.h ImageCompare.cpp ImageCompare.h RenderDocCapture.cpp RenderDocCapture.h)
 
 find_package(Stb REQUIRED)
 

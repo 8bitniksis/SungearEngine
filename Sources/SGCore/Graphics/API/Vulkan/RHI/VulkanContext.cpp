@@ -149,6 +149,12 @@ bool SGCore::VulkanContext::createInstance(bool enableValidation) noexcept
     {
         m_setDebugUtilsObjectName = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
             vkGetInstanceProcAddr(m_instance, "vkSetDebugUtilsObjectNameEXT"));
+        m_cmdBeginDebugUtilsLabel = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(
+            vkGetInstanceProcAddr(m_instance, "vkCmdBeginDebugUtilsLabelEXT"));
+        m_cmdEndDebugUtilsLabel = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(
+            vkGetInstanceProcAddr(m_instance, "vkCmdEndDebugUtilsLabelEXT"));
+        m_cmdInsertDebugUtilsLabel = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(
+            vkGetInstanceProcAddr(m_instance, "vkCmdInsertDebugUtilsLabelEXT"));
     }
 
     SG_LOG_I("Vulkan: instance created (API {}.{}, validation: {}).",
@@ -399,6 +405,32 @@ void SGCore::VulkanContext::destroy() noexcept
         vkDestroyInstance(m_instance, nullptr);
         m_instance = VK_NULL_HANDLE;
     }
+}
+
+void SGCore::VulkanContext::beginDebugLabel(VkCommandBuffer commandBuffer, const std::string& name) const noexcept
+{
+    if(!m_cmdBeginDebugUtilsLabel || commandBuffer == VK_NULL_HANDLE) return;
+
+    VkDebugUtilsLabelEXT label { };
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = name.c_str();
+    m_cmdBeginDebugUtilsLabel(commandBuffer, &label);
+}
+
+void SGCore::VulkanContext::endDebugLabel(VkCommandBuffer commandBuffer) const noexcept
+{
+    if(!m_cmdEndDebugUtilsLabel || commandBuffer == VK_NULL_HANDLE) return;
+    m_cmdEndDebugUtilsLabel(commandBuffer);
+}
+
+void SGCore::VulkanContext::insertDebugLabel(VkCommandBuffer commandBuffer, const std::string& name) const noexcept
+{
+    if(!m_cmdInsertDebugUtilsLabel || commandBuffer == VK_NULL_HANDLE) return;
+
+    VkDebugUtilsLabelEXT label { };
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = name.c_str();
+    m_cmdInsertDebugUtilsLabel(commandBuffer, &label);
 }
 
 void SGCore::VulkanContext::setObjectName(std::uint64_t handle, VkObjectType type, const std::string& name) const noexcept

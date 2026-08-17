@@ -264,6 +264,14 @@ void SGCore::VulkanCommandList::beginRenderPass(const RenderPassBeginDesc& desc)
     renderingInfo.pDepthAttachment = m_passDepthTexture ? &depthInfo : nullptr;
     renderingInfo.pStencilAttachment = m_passDepthTexture && m_passFormats.m_stencilFormat != VK_FORMAT_UNDEFINED ? &stencilInfo : nullptr;
 
+    // a named region per pass: without it a capture is one flat list of draws
+    {
+        std::string label = m_targetIsSwapchain ? "swapchain pass" : "framebuffer pass";
+        label += " " + std::to_string(m_passExtent.width) + "x" + std::to_string(m_passExtent.height) +
+                 ", colors " + std::to_string(colorInfos.size()) + (m_passDepthTexture ? ", depth" : "");
+        m_device.getContext().beginDebugLabel(m_commandBuffer, label);
+    }
+
     vkCmdBeginRendering(m_commandBuffer, &renderingInfo);
     m_inPass = true;
     if(colorInfos.size() == 8)
@@ -283,6 +291,7 @@ void SGCore::VulkanCommandList::endRenderPass() noexcept
 {
     if(!m_inPass) return;
     vkCmdEndRendering(m_commandBuffer);
+    m_device.getContext().endDebugLabel(m_commandBuffer);
     m_inPass = false;
 
     // offscreen targets rest in SHADER_READ_ONLY so later passes can sample them without a barrier
@@ -534,6 +543,12 @@ bool SGCore::VulkanCommandList::flushState() noexcept
             frontFace = frontFace == VK_FRONT_FACE_CLOCKWISE ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
         }
         vkCmdSetFrontFace(m_commandBuffer, frontFace);
+
+        // the pipeline's debug name identifies the draw in a capture
+        if(const auto& name = m_pipeline->getDebugName(); !name.empty())
+        {
+            m_device.getContext().insertDebugLabel(m_commandBuffer, name);
+        }
     }
 
     // descriptor sets

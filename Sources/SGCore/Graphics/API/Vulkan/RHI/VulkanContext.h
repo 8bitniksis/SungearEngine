@@ -58,6 +58,14 @@ namespace SGCore
         /// Names the object in validation messages / RenderDoc when the debug utils extension is on.
         void setObjectName(std::uint64_t handle, VkObjectType type, const std::string& name) const noexcept;
 
+        /// Command-buffer debug regions. Without them a capture is one flat list of draws; with them
+        /// RenderDoc/NSight and validation messages show which pass a command belongs to.
+        void beginDebugLabel(VkCommandBuffer commandBuffer, const std::string& name) const noexcept;
+        void endDebugLabel(VkCommandBuffer commandBuffer) const noexcept;
+        void insertDebugLabel(VkCommandBuffer commandBuffer, const std::string& name) const noexcept;
+
+        [[nodiscard]] bool hasDebugUtils() const noexcept { return m_debugUtilsEnabled; }
+
         /// Registry of live GPU-owning objects (textures, buffers). destroy() releases the GPU side
         /// of everything still registered before the allocator/device go away: legacy assets in the
         /// AssetManager may outlive the renderer, and VMA asserts on leaked allocations in Debug.
@@ -68,5 +76,8 @@ namespace SGCore
         std::unordered_map<void*, std::function<void()>> m_liveResources;
         bool m_debugUtilsEnabled { };
         PFN_vkSetDebugUtilsObjectNameEXT m_setDebugUtilsObjectName = nullptr;
+        PFN_vkCmdBeginDebugUtilsLabelEXT m_cmdBeginDebugUtilsLabel = nullptr;
+        PFN_vkCmdEndDebugUtilsLabelEXT m_cmdEndDebugUtilsLabel = nullptr;
+        PFN_vkCmdInsertDebugUtilsLabelEXT m_cmdInsertDebugUtilsLabel = nullptr;
     };
 }

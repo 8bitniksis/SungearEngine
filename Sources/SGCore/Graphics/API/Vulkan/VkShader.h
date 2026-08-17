@@ -68,7 +68,9 @@ namespace SGCore
         {
             std::uint32_t m_binding { };
             std::uint32_t m_size { };
-            Ref<IGPUBuffer> m_buffer;
+            /// The values the passes have set so far. Kept on the CPU because the GPU copy a draw reads
+            /// has to be taken per draw: see VkShader::buildDescriptorSet().
+            std::vector<std::uint8_t> m_values;
         };
 
         struct LegacyMemberRef

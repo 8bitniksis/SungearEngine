@@ -24,6 +24,7 @@ namespace
             "  --output <file.png>    where to write the captured frame (default smoke_<gapi>.png)\n"
             "  --reference <file.png> compare against this image; exit code 1 on mismatch\n"
             "  --geometry-pass        read back the geometry framebuffer, not the post-processed one\n"
+            "  --renderdoc            trigger a RenderDoc capture of the captured frame\n"
             "  --attachment <n>       color attachment index to read back (default: the displayed one)\n"
             "  --threshold <0..255>   per-channel difference tolerated per pixel (default 8)\n"
             "  --max-diff <fraction>  max fraction of differing pixels to still pass (default 0.01)\n"
@@ -75,6 +76,10 @@ int main(int argc, char** argv)
         else if(arg == "--reference" && hasValue)
         {
             options.m_referencePath = std::filesystem::path(argv[++i]);
+        }
+        else if(arg == "--renderdoc")
+        {
+            options.m_renderDocCapture = true;
         }
         else if(arg == "--geometry-pass")
         {

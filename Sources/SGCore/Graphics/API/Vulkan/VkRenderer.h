@@ -49,6 +49,12 @@ namespace SGCore
 
         void renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState) override;
 
+        void renderArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                         const int& verticesCount, const int& indicesCount) override;
+
+        void renderArrayInstanced(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                  const int& verticesCount, const int& indicesCount, const int& instancesCount) override;
+
         void useState(const RenderState& newRenderState, bool forceState = false) noexcept final;
         void useBlendingState(const BlendingState& newBlendingState, bool forceState = false) noexcept final;
         void useMeshRenderState(const MeshRenderState& newMeshRenderState, bool forceState = false) noexcept final;
@@ -134,6 +140,10 @@ namespace SGCore
 
         /// Uploads the mesh into RHI buffers and builds its VertexInputDesc once (IMeshData::m_rhi).
         bool prepareMeshRHI(IMeshData& meshData) noexcept;
+
+        /// Draws a legacy IVertexArray (batching, decals, text, UI, debug lines) through the RHI.
+        void drawLegacyArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                             int verticesCount, int indicesCount, int instancesCount) noexcept;
 
         /// Not a member of the singleton on purpose: it must stay readable after the singleton dies.
         static inline VulkanDevice* s_liveDevice = nullptr;

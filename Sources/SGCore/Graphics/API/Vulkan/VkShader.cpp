@@ -11,6 +11,7 @@
 
 #include "RHI/VulkanDescriptorSet.h"
 #include "RHI/VulkanDevice.h"
+#include "RHI/VulkanGPUBuffer.h"
 #include "RHI/VulkanSharedUniformBuffers.h"
 #include "RHI/VulkanTexture.h"
 #include "RHI/VulkanTextureUnits.h"
@@ -177,30 +178,14 @@ void SGCore::VkShader::setupLegacyBlocks() noexcept
         if(binding.m_type != ShaderDescriptorType::UNIFORM_BUFFER) continue;
         if(binding.m_name.rfind("SGLegacyUniforms", 0) != 0) continue;
 
-        GPUBufferDesc bufferDesc;
-        bufferDesc.m_size = binding.m_blockSize;
-        bufferDesc.m_usage = GPUBufferUsage::SGG_UNIFORM_BUFFER;
-        // written every frame by the passes: host-visible, no staging round trip
-        bufferDesc.m_access = GPUMemoryAccess::SGG_HOST_VISIBLE;
-        bufferDesc.m_debugName = binding.m_name;
-
         LegacyBlock block;
         block.m_binding = binding.m_binding;
         block.m_size = binding.m_blockSize;
-        block.m_buffer = device->createBuffer(bufferDesc);
-        if(!block.m_buffer) continue;
-
         // zero-initialized: uniforms nobody sets read as 0 / false, like a fresh GL program
-        if(void* mapped = block.m_buffer->map(0, binding.m_blockSize))
-        {
-            std::memset(mapped, 0, binding.m_blockSize);
-            block.m_buffer->unmap();
-        }
-
-        m_descriptorSet->setUniformBuffer(block.m_binding, block.m_buffer);
+        block.m_values.assign(binding.m_blockSize, std::uint8_t { 0 });
 
         const std::size_t blockIndex = m_legacyBlocks.size();
-        m_legacyBlocks.push_back(block);
+        m_legacyBlocks.push_back(std::move(block));
 
         for(const auto& member : binding.m_members)
         {
@@ -217,12 +202,7 @@ void SGCore::VkShader::setupLegacyBlocks() noexcept
 
 void SGCore::VkShader::destroyLegacyBlocks() noexcept
 {
-    auto* device = currentDevice();
-    for(auto& block : m_legacyBlocks)
-    {
-        // the GPU may still read it: released with the next retired submission
-        if(device && block.m_buffer) device->destroyDeferred(block.m_buffer);
-    }
+    // the GPU copies live in the device's uniform arena, which outlives every shader
     m_legacyBlocks.clear();
     m_legacyMembers.clear();
 }
@@ -254,6 +234,23 @@ void SGCore::VkShader::bind() const noexcept
 const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet() noexcept
 {
     if(!m_descriptorSet) return m_descriptorSet;
+
+    // This runs once per draw, and the values the passes set before it are this draw's alone: on GL
+    // they went straight into the program, while here the draw is only recorded and runs later. So the
+    // block is copied into a slice of its own, which nothing after this draw writes to. Sharing one
+    // buffer instead makes every draw of a pass read the values of the pass's last draw — the scene
+    // then collapses onto the last object's transform and material.
+    if(auto* device = currentDevice())
+    {
+        for(auto& block : m_legacyBlocks)
+        {
+            const auto slice = device->allocateTransientUniforms(block.m_size);
+            if(!slice.m_mapped) continue;
+
+            std::memcpy(slice.m_mapped, block.m_values.data(), block.m_values.size());
+            m_descriptorSet->setUniformBuffer(block.m_binding, slice.m_buffer, slice.m_offset, block.m_size);
+        }
+    }
 
     // the engine's shared blocks (CameraData, ProgramDataBlock, ...) are declared without an explicit
     // binding, so they are matched by block name, not by IUniformBuffer::setLayoutLocation
@@ -360,7 +357,8 @@ bool SGCore::VkShader::writeLegacy(std::string_view uniformName, const void* dat
         }
         // std140 padding makes capacity ≥ the value size for scalars/vectors/matrices; never overrun
         const std::uint32_t bytes = capacity == 0 || size < capacity ? size : capacity;
-        block.m_buffer->write(data, bytes, offset);
+        if(offset + bytes > block.m_values.size()) continue;
+        std::memcpy(block.m_values.data() + offset, data, bytes);
     }
     return true;
 }

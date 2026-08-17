@@ -457,11 +457,27 @@ offscreen-attachment, readback, screen blit, readback экрана — байт 
   программе, пропускаются). Наборы освобождаются, когда завершается submission. Layout'ы
   наборов и pipeline layout живут в `VulkanShaderProgram` (из SPIR-V-рефлексии; при отсутствии
   SPIR-V в `ShaderStageSource` программа компилирует его сама из вулканизированного GLSL).
+- **Юниформы на draw.** Материализация набора снимает слепок **привязок**, но не содержимого
+  буфера, поэтому значения, различающиеся по draw'ам (трансформ объекта, цвета материала), не
+  могут жить в одном буфере, перезаписываемом на месте: draw записывается, а исполняется позже,
+  и все draw'ы прохода прочитали бы значения последнего. `VkShader` держит legacy-блок в
+  CPU-копии, а `buildDescriptorSet()` (один вызов на draw) копирует его в срез
+  `VulkanDevice::allocateTransientUniforms()` и биндит этот offset. Арена — bump-аллокатор по
+  чанкам host-visible памяти; регионы ротируются в `VkRenderer::prepareFrame`
+  (`rotateUniformArena()`), поэтому регион переписывается только через несколько кадров, когда
+  использовавшие его сабмиты давно завершены.
 - **Командные списки.** `VulkanCommandList` записывает в основной командный буфер, а
   `uploadData` — во второй, transfer-буфер, который сабмитится **перед** основным: аплоад
   внутри прохода работает как на GL. Пайплайн/наборы/viewport откладываются до первого draw.
   Каждый `IDevice::submit` — свой `vkQueueSubmit2` с fence; ресурсы submission'а живут до
   его завершения (`VulkanSubmission::m_keepAlive`).
+- **Readback конвертирует формат сам.** `glReadPixels` приводит данные к запрошенному
+  `(format, dataType)`, а `vkCmdCopyImageToBuffer` копирует память как есть. Объявленный
+  `m_dataType` attachment'а при этом вполне может расходиться с форматом образа (G-буфер
+  объявлен `SGG_RGB16_FLOAT` + `SGG_FLOAT`, а образ — `R16G16B16A16_SFLOAT`), поэтому
+  `VkFrameBuffer::readAttachmentPixels` берёт раскладку образа
+  (`VulkanTypesCaster::formatLayout`) и декодирует канал за каналом, оставляя memcpy для
+  точного совпадения раскладок.
 - **Раскладки изображений.** Offscreen-текстуры «отдыхают» в `SHADER_READ_ONLY_OPTIMAL`:
   `beginRenderPass` переводит их в attachment-layout, `endRenderPass` — обратно, поэтому внутри
   прохода (где барьеры запрещены) любую текстуру можно сэмплировать. Swapchain-изображение

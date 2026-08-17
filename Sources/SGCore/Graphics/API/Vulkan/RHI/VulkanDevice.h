@@ -32,6 +32,15 @@ namespace SGCore
         VkDescriptorSet m_set = VK_NULL_HANDLE;
     };
 
+    /// A slice of the per-frame uniform arena, ready to be filled and bound at a single offset.
+    struct VulkanUniformSlice
+    {
+        Ref<VulkanGPUBuffer> m_buffer;
+        std::uint64_t m_offset { };
+        /// Host-visible memory of exactly the requested size; nullptr when the allocation failed.
+        void* m_mapped { };
+    };
+
     /// One vkQueueSubmit2 worth of work plus everything that must stay alive until its fence signals.
     struct VulkanSubmission
     {
@@ -81,6 +90,16 @@ namespace SGCore
 
         [[nodiscard]] VulkanTransientDescriptorSet allocateTransientDescriptorSet(VkDescriptorSetLayout layout) noexcept;
 
+        /// Reserves uniform memory for the draw being recorded. Commands run long after they are
+        /// recorded, so values that differ per draw can not live in one buffer written in place: the
+        /// last write would be what every draw of the pass reads. Each draw copies its values into its
+        /// own slice instead and binds that offset.
+        [[nodiscard]] VulkanUniformSlice allocateTransientUniforms(std::uint64_t size) noexcept;
+
+        /// Opens a new frame's arena region. Regions rotate, so a region is refilled only after the
+        /// frames that recorded into it have long since finished.
+        void rotateUniformArena() noexcept;
+
         /// Host-visible staging buffer of the given size (TRANSFER_SRC).
         [[nodiscard]] Ref<VulkanGPUBuffer> createStagingBuffer(std::uint64_t size, const char* debugName) noexcept;
 
@@ -116,7 +135,28 @@ namespace SGCore
         std::vector<VkDescriptorPool> m_descriptorPools;
         std::size_t m_currentDescriptorPool { };
 
+        struct UniformArenaChunk
+        {
+            Ref<VulkanGPUBuffer> m_buffer;
+            void* m_mapped { };
+            std::uint64_t m_size { };
+        };
+
+        /// Bump allocator over a list of chunks; a chunk is added only when a frame needs more room
+        /// than the region already has, and is then kept for every later frame.
+        struct UniformArenaRegion
+        {
+            std::vector<UniformArenaChunk> m_chunks;
+            std::size_t m_currentChunk { };
+            std::uint64_t m_usedInChunk { };
+        };
+
+        static constexpr std::size_t uniform_arena_regions = 3;
+
         std::vector<Ref<IGPUObject>> m_deferredDestroy;
+
+        UniformArenaRegion m_uniformArena[uniform_arena_regions];
+        std::size_t m_currentUniformRegion { };
 
         std::unordered_map<std::size_t, std::vector<Ref<VulkanPipelineState>>> m_pipelineCache;
     };

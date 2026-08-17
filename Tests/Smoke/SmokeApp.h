@@ -30,6 +30,9 @@ namespace SGSmoke
         bool m_captureGeometryPass = false;
         /// Color attachment index to read back; the default is the one the app displays.
         std::optional<std::uint32_t> m_captureAttachment;
+        /// Ask RenderDoc to capture exactly the frame this test reads back (needs the process to run
+        /// under RenderDoc: renderdoccmd capture / the GUI).
+        bool m_renderDocCapture { };
     };
 
     /**

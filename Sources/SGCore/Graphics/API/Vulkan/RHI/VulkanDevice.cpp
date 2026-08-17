@@ -341,6 +341,60 @@ SGCore::VulkanTransientDescriptorSet SGCore::VulkanDevice::allocateTransientDesc
     return result;
 }
 
+void SGCore::VulkanDevice::rotateUniformArena() noexcept
+{
+    m_currentUniformRegion = (m_currentUniformRegion + 1) % uniform_arena_regions;
+    auto& region = m_uniformArena[m_currentUniformRegion];
+    region.m_currentChunk = 0;
+    region.m_usedInChunk = 0;
+}
+
+SGCore::VulkanUniformSlice SGCore::VulkanDevice::allocateTransientUniforms(std::uint64_t size) noexcept
+{
+    if(size == 0) return { };
+
+    // a uniform buffer can only be bound at an offset the device allows
+    const std::uint64_t alignment = std::max<std::uint64_t>(
+        m_context.m_physicalDeviceProperties.limits.minUniformBufferOffsetAlignment, 16);
+
+    auto& region = m_uniformArena[m_currentUniformRegion];
+
+    while(region.m_currentChunk < region.m_chunks.size())
+    {
+        const auto& chunk = region.m_chunks[region.m_currentChunk];
+        const std::uint64_t offset = (region.m_usedInChunk + alignment - 1) / alignment * alignment;
+        if(chunk.m_mapped && offset + size <= chunk.m_size)
+        {
+            region.m_usedInChunk = offset + size;
+            return { chunk.m_buffer, offset, static_cast<std::uint8_t*>(chunk.m_mapped) + offset };
+        }
+        // this chunk is full: continue in the next one, adding it below if there is none
+        ++region.m_currentChunk;
+        region.m_usedInChunk = 0;
+    }
+
+    constexpr std::uint64_t min_chunk_size = 256ull * 1024;
+
+    UniformArenaChunk chunk;
+    chunk.m_size = std::max(min_chunk_size, size);
+
+    GPUBufferDesc desc;
+    desc.m_size = chunk.m_size;
+    desc.m_usage = GPUBufferUsage::SGG_UNIFORM_BUFFER;
+    desc.m_access = GPUMemoryAccess::SGG_HOST_VISIBLE;
+    desc.m_debugName = "transient_uniforms";
+
+    chunk.m_buffer = MakeRef<VulkanGPUBuffer>(*this, desc);
+    if(!chunk.m_buffer->isValid()) return { };
+    chunk.m_mapped = chunk.m_buffer->getMappedPointer();
+    if(!chunk.m_mapped) return { };
+
+    region.m_chunks.push_back(chunk);
+    region.m_currentChunk = region.m_chunks.size() - 1;
+    region.m_usedInChunk = size;
+    return { chunk.m_buffer, 0, chunk.m_mapped };
+}
+
 SGCore::Ref<SGCore::VulkanGPUBuffer> SGCore::VulkanDevice::createStagingBuffer(std::uint64_t size, const char* debugName) noexcept
 {
     GPUBufferDesc desc;

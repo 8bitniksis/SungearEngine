@@ -26,6 +26,8 @@ namespace SGCore
         VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
         VkFilter m_filter = VK_FILTER_LINEAR;
         VkSamplerAddressMode m_addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        /// Cube map: six array layers behind a VK_IMAGE_VIEW_TYPE_CUBE view (skybox, reflections).
+        bool m_cube { };
         std::string m_debugName;
     };
 

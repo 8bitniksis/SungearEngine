@@ -77,6 +77,12 @@ SGCore::Ref<SGCore::VulkanTexture> SGCore::VulkanTexture::create(VulkanContext& 
     imageInfo.usage = desc.m_usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if(desc.m_cube)
+    {
+        imageInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+        imageInfo.arrayLayers = 6;
+        texture->m_arrayLayers = 6;
+    }
 
     VmaAllocationCreateInfo allocationInfo { };
     allocationInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -94,7 +100,8 @@ SGCore::Ref<SGCore::VulkanTexture> SGCore::VulkanTexture::create(VulkanContext& 
     VkImageViewCreateInfo viewInfo { };
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = texture->m_image;
-    viewInfo.viewType = texture->m_arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = desc.m_cube ? VK_IMAGE_VIEW_TYPE_CUBE
+                                    : (texture->m_arrayLayers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D);
     viewInfo.format = desc.m_format;
     // TODO(vulkan): a depth-stencil image needs a depth-only view for sampling; the full view here
     // serves attachment use, sampling such images gets its own view when shadows move to Vulkan

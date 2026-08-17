@@ -146,6 +146,80 @@ std::uint32_t SGCore::VulkanTypesCaster::formatTexelSize(VkFormat format) noexce
     }
 }
 
+SGCore::VulkanTypesCaster::FormatLayout SGCore::VulkanTypesCaster::formatLayout(VkFormat format) noexcept
+{
+    using Kind = FormatChannelKind;
+
+    switch(format)
+    {
+        case VK_FORMAT_R8_UNORM: return { Kind::UNORM, 1, 1, false };
+        case VK_FORMAT_R8_SNORM: return { Kind::SNORM, 1, 1, false };
+        case VK_FORMAT_R8_UINT: return { Kind::UINT, 1, 1, false };
+        case VK_FORMAT_R8_SINT: return { Kind::SINT, 1, 1, false };
+
+        case VK_FORMAT_R8G8_UNORM: return { Kind::UNORM, 2, 1, false };
+        case VK_FORMAT_R8G8_SNORM: return { Kind::SNORM, 2, 1, false };
+        case VK_FORMAT_R8G8_UINT: return { Kind::UINT, 2, 1, false };
+        case VK_FORMAT_R8G8_SINT: return { Kind::SINT, 2, 1, false };
+
+        case VK_FORMAT_R8G8B8_UNORM: return { Kind::UNORM, 3, 1, false };
+        case VK_FORMAT_R8G8B8_SNORM: return { Kind::SNORM, 3, 1, false };
+        case VK_FORMAT_R8G8B8_UINT: return { Kind::UINT, 3, 1, false };
+        case VK_FORMAT_R8G8B8_SINT: return { Kind::SINT, 3, 1, false };
+
+        // sRGB shares the UNORM layout: the transfer function lives in the sampler and the blender,
+        // not in the memory layout, so a raw copy hands out the stored bytes either way
+        case VK_FORMAT_R8G8B8A8_UNORM: case VK_FORMAT_R8G8B8A8_SRGB: return { Kind::UNORM, 4, 1, false };
+        case VK_FORMAT_R8G8B8A8_SNORM: return { Kind::SNORM, 4, 1, false };
+        case VK_FORMAT_R8G8B8A8_UINT: return { Kind::UINT, 4, 1, false };
+        case VK_FORMAT_R8G8B8A8_SINT: return { Kind::SINT, 4, 1, false };
+        case VK_FORMAT_B8G8R8A8_UNORM: case VK_FORMAT_B8G8R8A8_SRGB: return { Kind::UNORM, 4, 1, true };
+
+        case VK_FORMAT_R16_UNORM: case VK_FORMAT_D16_UNORM: return { Kind::UNORM, 1, 2, false };
+        case VK_FORMAT_R16_SNORM: return { Kind::SNORM, 1, 2, false };
+        case VK_FORMAT_R16_UINT: return { Kind::UINT, 1, 2, false };
+        case VK_FORMAT_R16_SINT: return { Kind::SINT, 1, 2, false };
+        case VK_FORMAT_R16_SFLOAT: return { Kind::SFLOAT, 1, 2, false };
+
+        case VK_FORMAT_R16G16_UNORM: return { Kind::UNORM, 2, 2, false };
+        case VK_FORMAT_R16G16_SNORM: return { Kind::SNORM, 2, 2, false };
+        case VK_FORMAT_R16G16_UINT: return { Kind::UINT, 2, 2, false };
+        case VK_FORMAT_R16G16_SINT: return { Kind::SINT, 2, 2, false };
+        case VK_FORMAT_R16G16_SFLOAT: return { Kind::SFLOAT, 2, 2, false };
+
+        case VK_FORMAT_R16G16B16_UNORM: return { Kind::UNORM, 3, 2, false };
+        case VK_FORMAT_R16G16B16_SNORM: return { Kind::SNORM, 3, 2, false };
+        case VK_FORMAT_R16G16B16_UINT: return { Kind::UINT, 3, 2, false };
+        case VK_FORMAT_R16G16B16_SINT: return { Kind::SINT, 3, 2, false };
+        case VK_FORMAT_R16G16B16_SFLOAT: return { Kind::SFLOAT, 3, 2, false };
+
+        case VK_FORMAT_R16G16B16A16_UNORM: return { Kind::UNORM, 4, 2, false };
+        case VK_FORMAT_R16G16B16A16_SNORM: return { Kind::SNORM, 4, 2, false };
+        case VK_FORMAT_R16G16B16A16_UINT: return { Kind::UINT, 4, 2, false };
+        case VK_FORMAT_R16G16B16A16_SINT: return { Kind::SINT, 4, 2, false };
+        case VK_FORMAT_R16G16B16A16_SFLOAT: return { Kind::SFLOAT, 4, 2, false };
+
+        case VK_FORMAT_R32_UINT: return { Kind::UINT, 1, 4, false };
+        case VK_FORMAT_R32_SINT: return { Kind::SINT, 1, 4, false };
+        case VK_FORMAT_R32_SFLOAT: case VK_FORMAT_D32_SFLOAT: return { Kind::SFLOAT, 1, 4, false };
+
+        case VK_FORMAT_R32G32_UINT: return { Kind::UINT, 2, 4, false };
+        case VK_FORMAT_R32G32_SINT: return { Kind::SINT, 2, 4, false };
+        case VK_FORMAT_R32G32_SFLOAT: return { Kind::SFLOAT, 2, 4, false };
+
+        case VK_FORMAT_R32G32B32_UINT: return { Kind::UINT, 3, 4, false };
+        case VK_FORMAT_R32G32B32_SINT: return { Kind::SINT, 3, 4, false };
+        case VK_FORMAT_R32G32B32_SFLOAT: return { Kind::SFLOAT, 3, 4, false };
+
+        case VK_FORMAT_R32G32B32A32_UINT: return { Kind::UINT, 4, 4, false };
+        case VK_FORMAT_R32G32B32A32_SINT: return { Kind::SINT, 4, 4, false };
+        case VK_FORMAT_R32G32B32A32_SFLOAT: return { Kind::SFLOAT, 4, 4, false };
+
+        default:
+            return { };
+    }
+}
+
 bool SGCore::VulkanTypesCaster::isDepthFormat(SGGColorInternalFormat format) noexcept
 {
     switch(format)

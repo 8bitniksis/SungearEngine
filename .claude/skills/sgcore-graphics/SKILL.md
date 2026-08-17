@@ -71,6 +71,15 @@ description: >-
   возвращает `glm::vec3` через `GL_FLOAT`.
 - Строки в readback'е GL идут **снизу вверх** — для PNG нужен флип
   (`isOpenGLAPI(...) → flipVertically`).
+- **На Vulkan readback обязан конвертировать формат сам.** `glReadPixels` приводит данные к
+  запрошенному `(format, dataType)`, а `vkCmdCopyImageToBuffer` — сырое копирование памяти: в staging
+  ложится раскладка **образа**. А объявленный `m_dataType` часто с ней расходится: attachment'ы 4–6
+  `LayeredFrameReceiver` объявлены `SGG_RGB16_FLOAT` + `SGG_FLOAT` (4 байта), тогда как реальный
+  `VkFormat` — `R16G16B16A16_SFLOAT` (2 байта на канал, +расширение до RGBA). Если считать размер по
+  `m_dataType`, staging заполняется наполовину и декодируется со сдвигом — G-буфер выглядит чёрным с
+  одной полосой (потеряно время 2026-08-18 на сравнение мусора). Теперь `VkFrameBuffer::readAttachmentPixels`
+  берёт раскладку образа через `VulkanTypesCaster::formatLayout(VkFormat)` и декодирует канал за каналом
+  (half→float и т. п.), сохраняя быстрый memcpy, когда раскладки совпадают точно.
 - **Размер фреймбуферов `LayeredFrameReceiver` = разрешение основного монитора**
   (`LayeredFrameReceiver.cpp:47,142`), не окна. Скриншот на 1080p-мониторе — 1920×1080
   независимо от размера окна; менять размер окна ради размера кадра бесполезно.
@@ -283,10 +292,16 @@ description: >-
 `createStagingBuffer`, `retire`), `RHI/VulkanSwapchain`, `RHI/VulkanTexture` (image+view+
 sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, `RHI/VulkanPipelineState`,
 `RHI/VulkanDescriptorSet`, `RHI/VulkanCommandList`; фасады `VkRenderer`, `VkTexture2D`,
-`VkFrameBuffer`, `VkShader`, `VkUniformBuffer` (`VkMeshData`, `VkVertexArray`, `VkVertexBuffer`,
-`VkIndexBuffer`, `VkCubemapTexture` — ещё заглушки 2023 г., поэтому геометрия не отправляется и
-смоук на Vulkan даёт чёрный кадр при полностью отработавшей сцене). Подробное «почему» — RHI_DESIGN,
-«Vulkan-бэкенд». Грабли:
+`VkFrameBuffer`, `VkShader`, `VkUniformBuffer`, `VkVertexArray`, `VkVertexBuffer`, `VkIndexBuffer`,
+`VkCubemapTexture`. Подробное «почему» — RHI_DESIGN, «Vulkan-бэкенд».
+
+Состояние на 2026-08-18: геометрический проход рисует сцену корректно — каждый объект со своим
+трансформом и материалом, тени, блеск (сравнение вложения 5 с GL46 совпадает структурно). Расхождение
+финального кадра — в двух известных местах: **атмосфера не рисуется** (белый фон вместо неба) и
+прозрачная сфера пишется во вложение 1, тогда как GL уводит её в стохастическую прозрачность.
+`SGRHITest` — PASS на gl46 и vulkan; `SGSmokeTest --gapi gl46 --reference` — 0.000 %.
+
+Грабли:
 
 - **Флип только в окно.** Offscreen-проходы без флипа viewport'а (память = GL, readback без
   переворота), проходы в swapchain — отрицательная высота viewport'а + инверсия front face
@@ -332,6 +347,10 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
   всего массива. GL даёт `GL_ARRAY_STRIDE`, а `padded_size` из SPIRV-Reflect — размер всего члена,
   поэтому SPIR-V-путь берёт `array.stride` (иначе `name[i]` уезжает за пределы блока: 2026-08-17
   на смоуке — 280 ошибок «write of 12 bytes at offset 8416 exceeds buffer size 4320»).
+- **Readback attachment'а отдаёт строки в порядке render target'а на ВСЕХ бэкендах** (строка 0 =
+  NDC y = −1): Vulkan намеренно не флипает viewport в offscreen-проходах, чтобы раскладка памяти
+  совпадала с GL. Значит переворот для PNG/сравнения нужен одинаковый для всех API — флип «только
+  для GL» давал перевёрнутый кадр на Vulkan (2026-08-17).
 - **Аплоад текстуры сайзится по формату изображения**, а не по `m_channelsCount`/`m_dataType`:
   `vkCmdCopyBufferToImage` считает объём по VkFormat. Есть текстуры движка, где эти два не
   сходятся (RGBA8-данные при 8-байтовом формате) — `VkTexture2D::uploadRegion` такой аплоад
@@ -393,8 +412,21 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
 - **Последовательность кадра на фасадах покрыта тестом и НЕ является причиной пустой сцены**:
   срез `runFacadeSequenceSlice` в `SGRHITest` повторяет форму кадра (2 фреймбуфера, 8 и 4
   attachment'а, перекрывающиеся bind'ы, очистка, повторный bind с draw-набором) — очистки доживают
-  до readback на обоих бэкендах. Значит искать надо в самих draw'ах (blending, маска записи,
-  выходы фрагментного шейдера), а не в обвязке проходов.
+  до readback на обоих бэкендах. Значит искать надо в самих draw'ах, а не в обвязке проходов.
+- **Юниформы, различающиеся по draw'ам, обязаны сниматься по draw'у.** На GL `glUniform*` попадает
+  в программу немедленно, а здесь draw только **записывается** и исполняется позже, поэтому один
+  буфер, перезаписываемый на месте, даёт всем draw'ам прохода значения **последнего** из них: сцена
+  схлопывается на трансформ и материал последнего объекта (симптом 2026-08-18 — в G-буфере оставался
+  только пол, а прозрачная сфера выживала лишь потому, что в своём проходе была одна). Решение:
+  `VkShader` держит блок в CPU-копии (`LegacyBlock::m_values`), а `buildDescriptorSet()` (вызывается
+  один раз на draw) копирует его в срез арены устройства — `VulkanDevice::allocateTransientUniforms()`
+  — и биндит этот offset. Арена: bump-аллокатор по чанкам, регионы ротируются в `prepareFrame()`
+  (`rotateUniformArena()`), поэтому регион переписывается только через несколько кадров. Привязки
+  дескрипторов снимать отдельно не нужно: `VulkanCommandList` материализует transient `VkDescriptorSet`
+  на записи команды по версии набора, а буферы попадают в `m_keepAlive` сабмита.
+- **Диагностика через сравнение attachment'ов работает только после того, как readback честен**:
+  до 2026-08-18 RGBA16F-вложения читались как мусор (см. «Attachment'ы и readback»), и сравнение
+  Vulkan/GL46 по ним давало ложные выводы. Сначала проверять, что читаемый формат декодирован верно.
 - **Путь legacy-фасада фреймбуфера покрыт тестом**: срез в `SGRHITest` делает `bind` → `clearAttachment`
   → `unbind` → `readAttachmentPixels` и требует точный цвет. Проходит на gl46 и vulkan — то есть сам
   фасад и сабмит его прохода исправны; если сцена пустая, причина в другом.
@@ -405,6 +437,12 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
   проходы теней идут раньше и съедают счётчик, из-за чего кажется, что основной проход не рисует.
 - **Loader — DLL** (`vulkan-1.dll` из vcpkg bin или системный) — не трогать Vulkan в статических
   деструкторах.
+- **Отладочный инструментарий Vulkan**: слои валидации (в Debug автоматически, принудительно —
+  `SG_VK_VALIDATION=1/0`, работает и в Release); имена объектов через `VK_EXT_debug_utils`
+  (`VulkanContext::setObjectName` — изображения, буферы, модули, пайплайны); **метки команд**
+  (`beginDebugLabel`/`endDebugLabel`/`insertDebugLabel`) — каждый render pass открывает именованный
+  регион («framebuffer pass 1920x1080, colors 8, depth»), каждый draw помечается именем PSO, поэтому
+  захват RenderDoc/NSight читается по проходам; `SG_VK_CHECK` логирует выражение, `VkResult` и место.
 - Шум в логе `[Vulkan validation] loader_get_json … Bandicam/EOSOverlay`, `Removing layer
   VK_LAYER_OBS_HOOK` — сторонние implicit-слои системы, не ошибки движка.
 - Тест запускать из корня репозитория: `${enginePath}` = `./Resources`, иначе экранный шейдер

@@ -24,6 +24,7 @@
 #include "SGCore/Render/Alpha/TransparentEntityTag.h"
 #include "SGCore/Render/Atmosphere/Atmosphere.h"
 #include "SGCore/Render/LayeredFrameReceiver.h"
+#include "RenderDocCapture.h"
 #include "SGCore/Render/Mesh.h"
 #include "SGCore/Render/ShadowMapping/CSM/CSMTarget.h"
 #include "SGCore/Render/ShadowMapping/ShadowCaster.h"
@@ -73,9 +74,17 @@ void SGSmoke::SmokeApp::onUpdate(double dt, double fixedDt)
 {
     ++m_frameIndex;
 
+    // the capture must wrap the frame that is read back, so it starts one frame earlier and closes
+    // right after the readback
+    if(!m_captured && m_options.m_renderDocCapture && m_frameIndex + 1 == m_options.m_captureFrame)
+    {
+        RenderDocCapture::beginFrame();
+    }
+
     if(!m_captured && m_frameIndex >= m_options.m_captureFrame)
     {
         captureAndFinish();
+        if(m_options.m_renderDocCapture) RenderDocCapture::endFrame();
     }
 }
 
@@ -224,10 +233,11 @@ void SGSmoke::SmokeApp::captureAndFinish() noexcept
         return;
     }
 
-    if(isOpenGLAPI(SGCore::CoreMain::getRenderer()->getGAPIType()))
-    {
-        flipVertically(frame);
-    }
+    // Attachment readback hands out rows in render-target order, which is the same on every backend:
+    // row 0 is NDC y = -1. Vulkan offscreen passes deliberately keep the GL memory layout (no
+    // viewport flip) so that sampling and readback behave identically, so the flip to top-down PNG
+    // rows is unconditional — flipping only for GL left the Vulkan capture upside down.
+    flipVertically(frame);
 
     const auto gapiName = std::string(gapiTypeToString(SGCore::CoreMain::getRenderer()->getGAPIType()));
     const auto outputPath = m_options.m_outputPath.empty()

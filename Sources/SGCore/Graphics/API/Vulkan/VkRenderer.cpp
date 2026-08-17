@@ -4,6 +4,7 @@
 
 #include "VkRenderer.h"
 
+#include <cstdlib>
 #include <cstring>
 
 #include "RHI/VulkanCommandList.h"
@@ -12,6 +13,11 @@
 #include "RHI/VulkanSharedUniformBuffers.h"
 #include "RHI/VulkanTextureUnits.h"
 #include "SGCore/Graphics/API/AttachmentReadback.h"
+#include <algorithm>
+
+#include "SGCore/Graphics/API/IIndexBuffer.h"
+#include "SGCore/Graphics/API/IVertexArray.h"
+#include "SGCore/Graphics/API/IVertexBuffer.h"
 #include "SGCore/ImportedScenesArch/IMeshData.h"
 #include "SGCore/Graphics/API/IGPUObjectsStorage.h"
 #include "SGCore/Graphics/RHI/ScreenBlit.h"
@@ -81,12 +87,19 @@ bool SGCore::VkRenderer::confirmSupport() noexcept
     if(m_device && m_device->isReady()) return true;
 
 #ifdef SUNGEAR_DEBUG
-    constexpr bool enable_validation = true;
+    bool enableValidation = true;
 #else
-    constexpr bool enable_validation = false;
+    bool enableValidation = false;
 #endif
+    // SG_VK_VALIDATION=1/0 overrides the build default, so a Release build can be inspected with the
+    // layers on (and a Debug run can skip them when they get in the way)
+    if(const char* forced = std::getenv("SG_VK_VALIDATION"); forced && forced[0] != 0)
+    {
+        enableValidation = *forced != '0';
+        SG_LOG_I("Vulkan: validation layers {} by SG_VK_VALIDATION.", enableValidation ? "forced on" : "forced off");
+    }
 
-    if(!m_context->createInstance(enable_validation)) return false;
+    if(!m_context->createInstance(enableValidation)) return false;
     if(!m_context->createSurface(CoreMain::getWindow().getNativeHandle())) return false;
     if(!m_context->pickPhysicalDevice()) return false;
     if(!m_context->createDevice()) return false;
@@ -104,7 +117,10 @@ bool SGCore::VkRenderer::confirmSupport() noexcept
 
 void SGCore::VkRenderer::prepareFrame(const glm::ivec2& /*windowSize*/)
 {
-    if(m_device) m_device->getSwapchain().beginFrame();
+    if(!m_device) return;
+    m_device->getSwapchain().beginFrame();
+    // the per-draw uniform slices of the frames still in flight must stay untouched
+    m_device->rotateUniformArena();
 }
 
 void SGCore::VkRenderer::printInfo() noexcept
@@ -365,6 +381,93 @@ const std::shared_ptr<SGCore::VkRenderer>& SGCore::VkRenderer::getInstance() noe
     return s_instancePointer;
 }
 
+void SGCore::VkRenderer::renderArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                    const int& verticesCount, const int& indicesCount)
+{
+    drawLegacyArray(vertexArray, meshRenderState, verticesCount, indicesCount, 1);
+}
+
+void SGCore::VkRenderer::renderArrayInstanced(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                              const int& verticesCount, const int& indicesCount, const int& instancesCount)
+{
+    drawLegacyArray(vertexArray, meshRenderState, verticesCount, indicesCount, instancesCount);
+}
+
+void SGCore::VkRenderer::drawLegacyArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,
+                                         int verticesCount, int indicesCount, int instancesCount) noexcept
+{
+    if(!vertexArray || !m_device || !m_currentLegacyShader) return;
+
+    const auto& program = m_currentLegacyShader->getRHIProgram();
+    if(!program || !program->isValid()) return;
+
+    auto* commandList = static_cast<VulkanCommandList*>(m_frameBufferCommandList.get());
+    if(!commandList || !commandList->isRecording()) return;
+
+    // deterministic buffer order → stable slot numbers → stable pipeline cache key (as on GL46)
+    std::vector<IVertexBuffer*> buffers(vertexArray->getVertexBuffers().begin(), vertexArray->getVertexBuffers().end());
+    std::sort(buffers.begin(), buffers.end(), [](const IVertexBuffer* a, const IVertexBuffer* b) {
+        return a->getNativeHandle() < b->getNativeHandle();
+    });
+    if(buffers.empty()) return;
+
+    VertexInputDesc vertexInput;
+    std::vector<Ref<IGPUBuffer>> slotBuffers;
+    for(std::size_t slot = 0; slot < buffers.size(); ++slot)
+    {
+        auto* buffer = dynamic_cast<VkVertexBuffer*>(buffers[slot]);
+        if(!buffer || !buffer->getGPUBuffer() || buffer->getAttributes().empty()) return;
+
+        std::uint32_t stride = 0;
+        bool perInstance = false;
+        for(const auto& attribute : buffer->getAttributes())
+        {
+            stride = static_cast<std::uint32_t>(attribute.m_stride);
+            perInstance = perInstance || attribute.m_divisor > 0;
+            vertexInput.m_attributes.push_back({ attribute.m_location, static_cast<std::uint32_t>(slot), attribute.m_dataType,
+                                                 static_cast<std::uint32_t>(attribute.m_scalarsCount),
+                                                 static_cast<std::uint32_t>(attribute.m_offsetInStruct),
+                                                 attribute.m_isNormalized });
+        }
+        vertexInput.m_slots.push_back({ static_cast<std::uint32_t>(slot), stride, perInstance });
+        slotBuffers.push_back(buffer->getGPUBuffer());
+    }
+
+    Ref<IGPUBuffer> indexBuffer;
+    if(meshRenderState.m_useIndices)
+    {
+        auto* indices = dynamic_cast<VkIndexBuffer*>(vertexArray->getIndexBuffer());
+        if(!indices || !indices->getGPUBuffer()) return;
+        indexBuffer = indices->getGPUBuffer();
+    }
+
+    PipelineStateDesc pipelineDesc;
+    pipelineDesc.m_program = program;
+    pipelineDesc.m_renderState = m_cachedRenderState;
+    pipelineDesc.m_blendingState = m_cachedRenderState.m_globalBlendingState;
+    pipelineDesc.m_meshRenderState = meshRenderState;
+    pipelineDesc.m_vertexInput = std::move(vertexInput);
+    pipelineDesc.m_debugName = "legacy_array";
+    auto pipeline = m_device->getOrCreatePipeline(pipelineDesc);
+
+    commandList->bindPipeline(pipeline);
+    commandList->bindDescriptorSet(0, m_currentLegacyShader->buildDescriptorSet());
+    for(std::size_t slot = 0; slot < slotBuffers.size(); ++slot)
+    {
+        commandList->bindVertexBuffer(static_cast<std::uint32_t>(slot), slotBuffers[slot]);
+    }
+
+    if(meshRenderState.m_useIndices && indexBuffer)
+    {
+        commandList->bindIndexBuffer(indexBuffer, SGIndexType::SGG_UINT32);
+        commandList->drawIndexed(static_cast<std::uint32_t>(indicesCount), static_cast<std::uint32_t>(std::max(instancesCount, 1)));
+    }
+    else
+    {
+        commandList->draw(static_cast<std::uint32_t>(verticesCount), static_cast<std::uint32_t>(std::max(instancesCount, 1)));
+    }
+}
+
 void SGCore::VkRenderer::useState(const SGCore::RenderState& newRenderState, bool /*forceState*/) noexcept
 {
     // state lives in pipelines on Vulkan: remember it for the next draw's PSO
@@ -505,6 +608,7 @@ void SGCore::VkRenderer::renderMeshData(const IMeshData* meshData, const MeshRen
     {
         if(rhi.m_vertexColorsBuffers[i]) commandList->bindVertexBuffer(static_cast<std::uint32_t>(1 + i), rhi.m_vertexColorsBuffers[i]);
     }
+
 
     if(meshRenderState.m_useIndices && rhi.m_indexBuffer)
     {

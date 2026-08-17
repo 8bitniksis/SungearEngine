@@ -91,26 +91,54 @@ namespace
         return count;
     }
 
+    /// Appends the leaves of one block member, flattening nested structs into dotted names.
+    ///
+    /// The engine addresses uniforms the way GL reports them — leaf paths like
+    /// "objectTransform.modelMatrix" (GL enumerates GL_UNIFORM resources, which are always leaves).
+    /// SPIRV-Reflect instead reports the top-level member "objectTransform" with its own nested
+    /// members, so without this flattening every write to a nested uniform silently misses and the
+    /// shader reads zeros (observed as an empty frame on Vulkan, 2026-08-17).
+    void appendMemberLeaves(const SpvReflectBlockVariable& source, const std::string& prefix,
+                            std::vector<SGCore::ShaderReflection::BlockMember>& out) noexcept
+    {
+        const std::string name = prefix + (source.name ? source.name : "");
+        const bool isStruct = source.member_count > 0 && source.members;
+        const bool isArray = source.array.dims_count > 0;
+
+        // an array of structs would need per-element paths; the engine has none in these blocks, so
+        // it is reported as a single member rather than guessed at
+        if(isStruct && !isArray)
+        {
+            for(std::uint32_t i = 0; i < source.member_count; ++i)
+            {
+                appendMemberLeaves(source.members[i], name + ".", out);
+            }
+            return;
+        }
+
+        SGCore::ShaderReflection::BlockMember member;
+        member.m_name = name;
+        member.m_typeName = source.type_description && source.type_description->type_name ? source.type_description->type_name : "";
+        // offsets of nested members are relative to their parent; the engine needs them relative to
+        // the block, which is what absolute_offset carries
+        member.m_offset = source.absolute_offset;
+        member.m_size = source.size;
+        member.m_arrayCount = arrayCount(source.array);
+        // m_paddedSize means "stride of one element" for arrays (see ShaderReflection):
+        // SPIRV-Reflect's padded_size is the padded size of the whole member instead, so an
+        // array takes its stride from the array traits — otherwise "name[i]" addressing
+        // walks past the end of the block
+        member.m_paddedSize = isArray && source.array.stride > 0 ? source.array.stride : source.padded_size;
+        out.push_back(std::move(member));
+    }
+
     std::vector<SGCore::ShaderReflection::BlockMember> collectMembers(const SpvReflectBlockVariable& block) noexcept
     {
         std::vector<SGCore::ShaderReflection::BlockMember> members;
         members.reserve(block.member_count);
         for(std::uint32_t i = 0; i < block.member_count; ++i)
         {
-            const auto& source = block.members[i];
-            SGCore::ShaderReflection::BlockMember member;
-            member.m_name = source.name ? source.name : "";
-            member.m_typeName = source.type_description && source.type_description->type_name ? source.type_description->type_name : "";
-            member.m_offset = source.offset;
-            member.m_size = source.size;
-            member.m_arrayCount = arrayCount(source.array);
-            // m_paddedSize means "stride of one element" for arrays (see ShaderReflection):
-            // SPIRV-Reflect's padded_size is the padded size of the whole member instead, so an
-            // array takes its stride from the array traits — otherwise "name[i]" addressing
-            // walks past the end of the block
-            member.m_paddedSize = source.array.dims_count > 0 && source.array.stride > 0
-                                  ? source.array.stride : source.padded_size;
-            members.push_back(std::move(member));
+            appendMemberLeaves(block.members[i], "", members);
         }
         return members;
     }

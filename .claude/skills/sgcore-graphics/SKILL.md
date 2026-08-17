@@ -371,6 +371,12 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
   делят один список, а проходы биндят фреймбуфер, не отвязав предыдущий, — `vkBeginCommandBuffer`
   сбрасывает буфер. Теперь `begin()` доводит и **сабмитит** незавершённую работу
   (`flushRecordedWork`). Правило: любой общий список нельзя перезапускать без submit'а.
+- **SPIR-V-рефлексия обязана разворачивать вложенные структуры в листовые имена** (`objectTransform.modelMatrix`):
+  GL перечисляет `GL_UNIFORM`-ресурсы, а это всегда листья, а SPIRV-Reflect отдаёт член верхнего уровня
+  со своими вложенными `members`. Без разворачивания любая запись во вложенный uniform молча промахивается —
+  а движок так передаёт данные объекта (`useMatrix("objectTransform.modelMatrix", …)`). Смещения листьев берутся
+  из `absolute_offset` (относительно блока), не из `offset` (относительно родителя). Исправлено 2026-08-17,
+  покрыто срезом в `SGRHITest` (шейдер со `struct SGTestTransform`).
 - **Очистка адресует draw-буферы прохода, а не слоты attachment'ов** (`glClearBufferfv` на GL,
   `vkCmdClearAttachments` на Vulkan): без `bindAttachmentsToDrawIn` перед `clear()` на GL46 очистка
   просто не происходит (проверено 2026-08-17 — тест поймал это на GL46, не на Vulkan, где пустой

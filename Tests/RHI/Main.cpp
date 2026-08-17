@@ -47,12 +47,18 @@ namespace
     };
 
     // legacy-style GLSL: a loose uniform, no bindings — exactly what engine shaders look like
+    // struct-typed loose uniforms are how the engine passes per-object data
+    // ("objectTransform.modelMatrix"), so the slice carries one: both reflections must report its
+    // leaves by dotted path or every write to them silently misses
     const char* vertex_source =
         "layout(location = 0) in vec2 positionAttribute;\n"
         "layout(location = 1) in vec3 colorAttribute;\n"
+        "struct SGTestTransform { mat4 modelMatrix; vec4 tint; };\n"
+        "uniform SGTestTransform testTransform;\n"
         "uniform vec2 u_offset;\n"
         "out vec3 vs_color;\n"
-        "void main() { vs_color = colorAttribute; gl_Position = vec4(positionAttribute + u_offset, 0.0, 1.0); }\n";
+        "void main() { vs_color = colorAttribute * testTransform.tint.rgb;\n"
+        "  gl_Position = testTransform.modelMatrix * vec4(positionAttribute + u_offset, 0.0, 1.0); }\n";
 
     const char* fragment_source =
         "in vec3 vs_color;\n"
@@ -81,7 +87,8 @@ namespace
         vulkanizeConfig.m_target = isOpenGLAPI(properties.m_apiType) ? SGCore::SGSLEVulkanizer::Target::OPENGL
                                                                      : SGCore::SGSLEVulkanizer::Target::VULKAN;
         const auto report = SGCore::SGSLEVulkanizer::vulkanize(stages, vulkanizeConfig);
-        check(report.m_looseUniformsMoved == 2, "2 loose uniforms moved into per-stage blocks");
+        // u_offset and testTransform in the vertex stage, u_tint in the fragment one
+        check(report.m_looseUniformsMoved == 3, "3 loose uniforms moved into per-stage blocks");
 
         SGCore::ShaderProgramDesc programDesc;
         programDesc.m_debugName = "rhi_triangle";
@@ -109,6 +116,19 @@ namespace
                     offsetMember->m_offset, tintMember->m_offset);
         check(vsBlock->m_binding != fsBlock->m_binding, "per-stage blocks have distinct bindings");
 
+        // GL reports leaves natively (GL_UNIFORM resources); SPIR-V reports the struct itself and
+        // needs flattening, so this is where the two reflections used to disagree
+        const auto* nestedMatrix = reflection.findMember("SGLegacyUniforms_vertex", "testTransform.modelMatrix");
+        const auto* nestedTint = reflection.findMember("SGLegacyUniforms_vertex", "testTransform.tint");
+        check(nestedMatrix && nestedTint, "reflection reports nested struct members by dotted path");
+        if(nestedMatrix && nestedTint)
+        {
+            std::printf("nested members: testTransform.modelMatrix@%u size=%u, testTransform.tint@%u size=%u\n",
+                        nestedMatrix->m_offset, nestedMatrix->m_size, nestedTint->m_offset, nestedTint->m_size);
+            check(nestedTint->m_offset >= nestedMatrix->m_offset + 64,
+                  "nested member offsets are relative to the block, not to their struct");
+        }
+
         // ---- uniform data by reflection
         SGCore::GPUBufferDesc uboDesc;
         uboDesc.m_usage = SGCore::GPUBufferUsage::SGG_UNIFORM_BUFFER;
@@ -119,6 +139,14 @@ namespace
         auto vsUbo = device->createBuffer(uboDesc);
         const float offset[2] = { 0.0f, 0.0f };
         vsUbo->write(offset, sizeof(offset), offsetMember->m_offset);
+        if(nestedMatrix && nestedTint)
+        {
+            // the triangle degenerates unless the nested matrix really lands where reflection says
+            const float identity[16] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+            const float white[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            vsUbo->write(identity, sizeof(identity), nestedMatrix->m_offset);
+            vsUbo->write(white, sizeof(white), nestedTint->m_offset);
+        }
 
         uboDesc.m_size = fsBlock->m_blockSize;
         uboDesc.m_debugName = "fs_legacy";

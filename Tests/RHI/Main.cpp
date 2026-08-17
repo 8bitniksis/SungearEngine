@@ -7,6 +7,8 @@
 // values are asserted.
 
 #include <cstdio>
+#include <cmath>
+#include <utility>
 #include <cstring>
 #include <csignal>
 #include <stacktrace>
@@ -271,9 +273,105 @@ namespace
         }
     }
 
+    /// Reproduces the shape of a real engine frame on the legacy facades: several framebuffers with
+    /// several attachments, cleared and re-bound in the order LayeredFrameReceiver + IRenderPass use
+    /// them, with binds that overlap (a framebuffer is bound while another is still bound). The
+    /// smoke scene renders nothing on Vulkan while the single-framebuffer slice above passes, so the
+    /// difference has to live in this sequencing.
+    void runFacadeSequenceSlice()
+    {
+        auto* renderer = SGCore::CoreMain::getRenderer().get();
+        constexpr int size = 64;
+
+        auto makeBuffer = [&](int attachmentsCount) {
+            SGCore::Ref<SGCore::IFrameBuffer> buffer(renderer->createFrameBuffer());
+            buffer->setSize(size, size);
+            buffer->create();
+            buffer->bind();
+            for(int i = 0; i < attachmentsCount; ++i)
+            {
+                const auto type = static_cast<SGFrameBufferAttachmentType>(
+                    std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + i);
+                buffer->addAttachment(type, SGGColorFormat::SGG_RGBA, SGGColorInternalFormat::SGG_RGBA8,
+                                      SGGDataType::SGG_UNSIGNED_BYTE, 0, 0);
+            }
+            buffer->unbind();
+            return buffer;
+        };
+
+        // the layers framebuffer of a camera carries 8 attachments, the FX one fewer
+        auto layers = makeBuffer(8);
+        auto fx = makeBuffer(4);
+
+        auto colorOf = [](int attachmentIndex) {
+            return glm::vec4(attachmentIndex % 2 ? 0.0f : 1.0f, attachmentIndex >= 4 ? 1.0f : 0.0f, 0.25f, 1.0f);
+        };
+        for(int i = 0; i < 8; ++i)
+        {
+            const auto type = static_cast<SGFrameBufferAttachmentType>(
+                std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + i);
+            if(const auto attachment = layers->getAttachment(type)) attachment->m_clearColor = colorOf(i);
+        }
+
+        std::vector<SGFrameBufferAttachmentType> allLayerAttachments;
+        for(int i = 0; i < 8; ++i)
+        {
+            allLayerAttachments.push_back(static_cast<SGFrameBufferAttachmentType>(
+                std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + i));
+        }
+
+        // 1. LayeredFrameReceiver::clearPostProcessFrameBuffers(). The draw set has to be declared
+        //    before clearing: a clear addresses the pass's draw buffers by index (glClearBufferfv on
+        //    GL, vkCmdClearAttachments on Vulkan), not the attachment slots.
+        layers->bind();
+        layers->bindAttachmentsToDrawIn(allLayerAttachments);
+        layers->clear();
+        layers->unbind();
+
+        fx->bind();
+        fx->clear();
+        fx->unbind();
+
+        // 2. IRenderPass::iterateCameras(): bind, then narrow the draw set — and, while the layers
+        //    framebuffer is still bound, another pass binds its own target (shadow maps do this)
+        layers->bind();
+        layers->bindAttachmentsToDrawIn(allLayerAttachments);
+
+        fx->bind();      // overlapping bind: nobody unbound the layers framebuffer
+        fx->unbind();
+
+        layers->unbind();
+
+        // 3. the capture: what survived in the layers framebuffer?
+        for(const int index : { 1, 5 })
+        {
+            const auto type = static_cast<SGFrameBufferAttachmentType>(
+                std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + index);
+
+            SGCore::AttachmentReadback readback;
+            if(!layers->readAttachmentPixels(type, readback) || readback.m_data.size() < 4)
+            {
+                check(false, "sequenced facade readback works");
+                continue;
+            }
+
+            const glm::ivec4 pixel(readback.m_data[0], readback.m_data[1], readback.m_data[2], readback.m_data[3]);
+            const auto expected = colorOf(index);
+            const glm::ivec4 want(int(expected.r * 255.0f + 0.5f), int(expected.g * 255.0f + 0.5f),
+                                  int(expected.b * 255.0f + 0.5f), int(expected.a * 255.0f + 0.5f));
+            std::printf("sequenced attachment %d: got=(%d,%d,%d,%d) want=(%d,%d,%d,%d)\n", index,
+                        pixel.r, pixel.g, pixel.b, pixel.a, want.r, want.g, want.b, want.a);
+
+            const bool matches = std::abs(pixel.r - want.r) <= 1 && std::abs(pixel.g - want.g) <= 1 &&
+                                 std::abs(pixel.b - want.b) <= 1 && std::abs(pixel.a - want.a) <= 1;
+            check(matches, "clears survive a frame-shaped sequence of framebuffer binds");
+        }
+    }
+
     void onInit()
     {
         runSlice();
+        runFacadeSequenceSlice();
         std::printf("\nRHI slice: %s (%d failure(s))\n", g_failures == 0 && g_exitCode == 0 ? "PASS" : "FAIL", g_failures);
         if(g_failures != 0 && g_exitCode == 0) g_exitCode = 1;
         g_done = true;

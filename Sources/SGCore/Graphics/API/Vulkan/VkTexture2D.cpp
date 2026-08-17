@@ -85,15 +85,40 @@ void SGCore::VkTexture2D::createAsFrameBufferAttachment(IFrameBuffer* parentFram
     desc.m_usage = (depth ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) |
                    VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     desc.m_samples = m_useMultisampling ? static_cast<VkSampleCountFlagBits>(m_multisamplingSamplesCount) : VK_SAMPLE_COUNT_1_BIT;
-    // attachments are sampled by later passes without filtering surprises
-    desc.m_filter = VK_FILTER_LINEAR;
+    // NEAREST, as GL4Texture2D creates its attachments: later passes sample attachments texel by
+    // texel and compare the result exactly (the layered FX gate gets its layer volume that way), and
+    // an interpolated sample never equals the stored texel
+    desc.m_filter = VK_FILTER_NEAREST;
     desc.m_addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     desc.m_debugName = "attachment_" + sgFrameBufferAttachmentTypeToString(attachmentType);
     m_vulkanTexture = VulkanTexture::create(device->getContext(), desc);
     if(!m_vulkanTexture) return;
 
-    // rest in SHADER_READ_ONLY so an attachment can be sampled even before its first render pass
     device->immediateSubmit([&](VkCommandBuffer commandBuffer) {
+        // A fresh Vulkan image holds whatever was in that memory, while a GL texture created without
+        // data reads as zeros — and the engine relies on that: render passes load their attachments
+        // (LoadOp::SGG_LOAD) and the FX framebuffer's attachments are never cleared at all, so
+        // undefined contents survived into the final composite as sparse bright noise. Start cleared.
+        m_vulkanTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        VkImageSubresourceRange range { };
+        range.aspectMask = m_vulkanTexture->getAspect();
+        range.levelCount = VK_REMAINING_MIP_LEVELS;
+        range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+        if(m_vulkanTexture->isDepth())
+        {
+            // the far plane, not zero: a pass that forgets to clear depth should reject nothing
+            const VkClearDepthStencilValue value { 1.0f, 0 };
+            vkCmdClearDepthStencilImage(commandBuffer, m_vulkanTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &value, 1, &range);
+        }
+        else
+        {
+            const VkClearColorValue value { };
+            vkCmdClearColorImage(commandBuffer, m_vulkanTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &value, 1, &range);
+        }
+
+        // rest in SHADER_READ_ONLY so an attachment can be sampled even before its first render pass
         m_vulkanTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     });
 }

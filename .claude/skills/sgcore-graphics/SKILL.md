@@ -360,6 +360,13 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
   чёрный кадр при нуле ошибок; класс удалён 2026-08-17.
 - **Массивы сэмплеров**: проходы адресуют элементы (`mat_diffuseSamplers[0]`), а рефлексия отдаёт
   одно биндинг-имя без индекса — `VkShader::buildDescriptorSet` перебирает `[i]` до `m_count`.
+  **`isUniformExists` обязан снимать индекс перед обращением к рефлексии**: `bindMaterialTextures`
+  идёт по `name[i]` и **прерывает цикл** на первом несуществующем имени, поэтому «строгий» ответ
+  false молча отвязывает все текстуры материала (2026-08-17).
+- **Dummy-текстура**: Vulkan запрещает draw, если объявленный шейдером дескриптор не записан, а
+  проходы движка оставляют сэмплер непривязанным, когда у материала нет текстуры этого слота (на GL
+  он просто читает юнит 0). `VkRenderer::getDummyTexture()` — 1x1 белая картинка, которой
+  `VkShader::buildDescriptorSet` заполняет незанятые элементы.
 - **Loader — DLL** (`vulkan-1.dll` из vcpkg bin или системный) — не трогать Vulkan в статических
   деструкторах.
 - Шум в логе `[Vulkan validation] loader_get_json … Bandicam/EOSOverlay`, `Removing layer

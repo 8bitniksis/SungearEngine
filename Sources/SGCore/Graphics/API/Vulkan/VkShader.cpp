@@ -6,6 +6,7 @@
 
 #include <charconv>
 #include <cstring>
+#include <set>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "RHI/VulkanDescriptorSet.h"
@@ -276,7 +277,7 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet(
         // an array sampler is addressed element-wise by the passes ("mat_diffuseSamplers[0]"), while
         // reflection reports one binding under the base name — resolve every element
         const std::uint32_t count = binding.m_count == 0 ? 1 : binding.m_count;
-        bool anyBound = false;
+        std::set<std::uint32_t> boundElements;
         for(std::uint32_t element = 0; element < count; ++element)
         {
             auto unitIt = m_samplerUnits.find(binding.m_name + "[" + std::to_string(element) + "]");
@@ -287,15 +288,17 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet(
             if(!texture) continue;
 
             vulkanSet->setVulkanTexture(binding.m_binding, texture, element);
-            anyBound = true;
+            boundElements.insert(element);
         }
 
-        // a sampler the shader declares but nothing bound still needs a descriptor, or the draw is
-        // invalid; the fallback keeps whatever sits in unit 0 rather than leaving the slot empty
-        if(!anyBound)
+        // Vulkan refuses a draw whose declared descriptor was never written, while the passes leave
+        // a sampler unbound whenever the material has no texture of that slot (harmless on GL, where
+        // it just reads unit 0). Fill the remaining elements with the renderer's 1x1 white image.
+        for(std::uint32_t element = 0; element < count; ++element)
         {
-            const auto& fallback = VulkanTextureUnits::get(0);
-            if(fallback) vulkanSet->setVulkanTexture(binding.m_binding, fallback, 0);
+            if(boundElements.contains(element)) continue;
+            const auto& dummy = VkRenderer::getInstance()->getDummyTexture();
+            if(dummy) vulkanSet->setVulkanTexture(binding.m_binding, dummy, element);
         }
     }
 
@@ -422,7 +425,22 @@ void SGCore::VkShader::useInteger(const std::string& uniformName, const int& i)
 bool SGCore::VkShader::isUniformExists(const std::string& uniformName) const noexcept
 {
     if(isLegacyMember(uniformName)) return true;
-    return m_reflection.findBinding(uniformName) != nullptr;
+
+    // reflection names an array sampler without the index ("mat_diffuseSamplers"), while callers ask
+    // for elements: IShader::bindMaterialTextures walks "name[i]" and STOPS at the first name that
+    // does not exist, so answering false here silently unbinds every material texture
+    const auto bracket = uniformName.find('[');
+    if(bracket == std::string::npos) return m_reflection.findBinding(uniformName) != nullptr;
+
+    const auto* binding = m_reflection.findBinding(std::string_view(uniformName).substr(0, bracket));
+    if(!binding) return false;
+
+    std::uint32_t index = 0;
+    const auto close = uniformName.find(']', bracket);
+    const auto digits = std::string_view(uniformName).substr(bracket + 1, close == std::string::npos ? std::string_view::npos : close - bracket - 1);
+    if(std::from_chars(digits.data(), digits.data() + digits.size(), index).ec != std::errc { }) return false;
+
+    return index < (binding->m_count == 0 ? 1 : binding->m_count);
 }
 
 void SGCore::VkShader::useMaterialFactors(const SGCore::IMaterial* material)

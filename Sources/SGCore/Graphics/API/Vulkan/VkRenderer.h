@@ -17,6 +17,7 @@
 #include "VkFrameBuffer.h"
 #include "VkCubemapTexture.h"
 #include "RHI/VulkanContext.h"
+#include "RHI/VulkanTexture.h"
 
 namespace SGCore
 {
@@ -92,6 +93,11 @@ namespace SGCore
         void setCurrentLegacyShader(VkShader* shader) noexcept { m_currentLegacyShader = shader; }
         [[nodiscard]] VkShader* getCurrentLegacyShader() const noexcept { return m_currentLegacyShader; }
 
+        /// A 1x1 opaque white image. Vulkan requires every descriptor a shader declares to be
+        /// written before a draw, but the engine's passes leave samplers unbound whenever a material
+        /// has no texture of that slot (on GL such a sampler simply reads unit 0). This stands in.
+        [[nodiscard]] const Ref<VulkanTexture>& getDummyTexture() noexcept;
+
         /// The command list legacy VkFrameBuffer::bind()/unbind() record into (one per renderer).
         [[nodiscard]] ICommandList* getFrameBufferCommandList() noexcept;
         [[nodiscard]] const Ref<ICommandList>& getFrameBufferCommandListRef() noexcept;
@@ -112,6 +118,7 @@ namespace SGCore
         bool m_screenBlitInitTried { };
 
         VkShader* m_currentLegacyShader { };
+        Ref<VulkanTexture> m_dummyTexture;
 
         /// Vulkan has no global pipeline state: the passes' use*State() calls are remembered here
         /// and folded into the PSO of the next draw, as GL46 does with its cached state.

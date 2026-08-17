@@ -12,6 +12,7 @@
 
 #include "SGCore/Graphics/API/GL/GL4/GL4Renderer.h"
 #include "SGCore/Graphics/API/GL/GL46/GL46Renderer.h"
+#include "SGCore/Graphics/API/Vulkan/VkRenderer.h"
 
 std::vector<SGCore::GAPIType> SGCore::GAPISelector::s_preference = SGCore::GAPISelector::getDefaultPreference();
 
@@ -22,12 +23,15 @@ std::vector<SGCore::GAPIType> SGCore::GAPISelector::getDefaultPreference() noexc
     // Backends that are not implemented yet are skipped at selection. Note that a failed
     // GL46Renderer::confirmSupport() still closes the window instead of falling back to GL4
     // (task 1.3a).
+    // Vulkan is buildable but its legacy facades are incomplete (stage 2 in progress): it stays out
+    // of the default order and is reached through SG_GAPI=vulkan or setPreference() until the smoke
+    // test passes on it. Then it moves in front of GL46 here.
 #if SG_PLATFORM_OS_WINDOWS
-    return { SG_API_TYPE_DX12, SG_API_TYPE_VULKAN, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
+    return { SG_API_TYPE_DX12, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
 #elif SG_PLATFORM_OS_ANDROID
-    return { SG_API_TYPE_VULKAN, SG_API_TYPE_GL4 };
+    return { SG_API_TYPE_GL4 };
 #else
-    return { SG_API_TYPE_VULKAN, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
+    return { SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
 #endif
 }
 
@@ -69,10 +73,11 @@ SGCore::Ref<SGCore::IRenderer> SGCore::GAPISelector::createRenderer(GAPIType api
             return GL46Renderer::getInstance();
         // GLES on Android is currently served by GL4Renderer under the GL4 identifier
         // (see GL4Renderer::getInstance()); GLES2/GLES3 get their own entries when that is untangled.
+        case SG_API_TYPE_VULKAN:
+            return VkRenderer::getInstance();
         case SG_API_TYPE_UNKNOWN:
         case SG_API_TYPE_GLES2:
         case SG_API_TYPE_GLES3:
-        case SG_API_TYPE_VULKAN:
         case SG_API_TYPE_DX12:
             return nullptr;
     }

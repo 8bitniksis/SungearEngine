@@ -169,6 +169,9 @@ void SGCore::CoreMain::startCycle() noexcept
         // Coro::CoroScheduler::process();
     }
 
+    if(m_renderer) m_renderer->shutdown();
+    AudioDevice::shutdown();
+
     spdlog::shutdown();
 }
 

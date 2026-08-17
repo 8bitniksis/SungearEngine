@@ -430,6 +430,55 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
   падает на неё, если RHI-проход не инициализировался), проход считается
   перенесённым только при 0 % расхождений смоука на GL46.
 
+### Vulkan-бэкенд (этап 2, `Sources/SGCore/Graphics/API/Vulkan/`)
+
+Вторая реализация `IDevice` — `RHI/VulkanDevice` (Vulkan 1.3: dynamic rendering,
+synchronization2, VMA). `SGRHITest --gapi vulkan` проходит целиком (треугольник в
+offscreen-attachment, readback, screen blit, readback экрана — байт в байт с GL46).
+Решения, которых нет в интерфейсах и которые надо знать при работе с проходами:
+
+- **Система координат.** Offscreen-проходы рисуются **без** флипа viewport'а: NDC y = −1 →
+  строка 0 изображения, то есть раскладка памяти render target'ов совпадает с GL. Поэтому
+  сэмплирование attachment'ов, `gl_FragCoord.y`, `readAttachmentPixels` — как на GL, без
+  переворотов. Только проходы в окно (`RenderPassBeginDesc::m_frameBuffer == nullptr`) получают
+  отрицательную высоту viewport'а (картинка на экране прямая), а `readScreenPixels` возвращает
+  строки снизу вверх, как `glReadPixels`. Winding при этом переворачивается, поэтому front face —
+  **динамическое состояние** (`VK_DYNAMIC_STATE_FRONT_FACE`, core 1.3): `SGG_CCW` → `CLOCKWISE`
+  offscreen и `COUNTER_CLOCKWISE` в окно. `DeviceProperties::m_ndcYFlipRequired = true` —
+  информативно.
+- **Глубина.** При наличии `VK_EXT_depth_clip_control` пайплайны создаются с
+  `negativeOneToOne` — GL-проекции движка работают без правок (`m_depthZeroToOne = false`).
+  Без расширения — предупреждение в лог; проекции нужно будет сделать API-aware.
+- **PSO-варианты по проходу.** `PipelineStateDesc::m_renderTargets` никто не заполняет (GL не
+  требовал), поэтому `VulkanPipelineState` держит по одному `VkPipeline` на набор форматов
+  attachment'ов активного прохода (`VulkanPassFormats`) и создаёт их лениво на первом draw.
+- **Дескрипторы.** `VulkanDescriptorSet` — CPU-таблица; на draw'е она материализуется в
+  транзиентный `VkDescriptorSet` под layout программы (по рефлексии; биндинги, которых нет в
+  программе, пропускаются). Наборы освобождаются, когда завершается submission. Layout'ы
+  наборов и pipeline layout живут в `VulkanShaderProgram` (из SPIR-V-рефлексии; при отсутствии
+  SPIR-V в `ShaderStageSource` программа компилирует его сама из вулканизированного GLSL).
+- **Командные списки.** `VulkanCommandList` записывает в основной командный буфер, а
+  `uploadData` — во второй, transfer-буфер, который сабмитится **перед** основным: аплоад
+  внутри прохода работает как на GL. Пайплайн/наборы/viewport откладываются до первого draw.
+  Каждый `IDevice::submit` — свой `vkQueueSubmit2` с fence; ресурсы submission'а живут до
+  его завершения (`VulkanSubmission::m_keepAlive`).
+- **Раскладки изображений.** Offscreen-текстуры «отдыхают» в `SHADER_READ_ONLY_OPTIMAL`:
+  `beginRenderPass` переводит их в attachment-layout, `endRenderPass` — обратно, поэтому внутри
+  прохода (где барьеры запрещены) любую текстуру можно сэмплировать. Swapchain-изображение
+  переводится в `PRESENT_SRC` в `present()`; readback экрана возможен только пока кадр
+  acquired.
+- **Swapchain.** FIFO, изображения захватываются лениво первым проходом в окно
+  (`ensureAcquired`), acquire-семафор ждёт первый submission, трогающий изображение; present
+  через `Window::swapBuffers()` → `ISwapchain::present()`. Два кадра в полёте.
+- **Фасады legacy.** `VkTexture2D` (изображение + view + sampler, `bind(unit)` — no-op),
+  `VkFrameBuffer` (`bind`/`unbind` = begin/end прохода + submit на командном списке
+  рендерера, readback через staging). `VkShader`, `VkVertexArray`, `VkUniformBuffer` и т.д. —
+  ещё заглушки (задача 2.3): смоук на Vulkan пока не идёт, бэкенд вне дефолтного списка
+  предпочтения (`SG_GAPI=vulkan`).
+- **Завершение.** `IRenderer::shutdown()` вызывается в конце `CoreMain::startCycle()`;
+  Vulkan освобождает устройство там, а не в статических деструкторах (loader-DLL к тому
+  моменту может быть выгружена).
+
 ## Раскладка по файлам и порядок миграции
 
 Новый код живёт рядом со старым, в том же модуле (эволюция на месте, без
@@ -447,7 +496,7 @@ Sources/SGCore/Graphics/API/
 ├── IRenderer.h                     # остаётся фасадом, затем deprecated
 ├── RenderState.h                   # остаётся (часть PipelineStateDesc)
 ├── GL/                             # GL46 мигрирует на новый RHI (задача 1.5); постоянный fallback, GL4 удаляется
-├── Vulkan/                         # переписывается с нуля (этап 2); скелет 2023 г. удаляется
+├── Vulkan/                         # VkRenderer + фасады Vk*; RHI/ — VulkanDevice и объекты (этап 2)
 └── DX12/                           # этап 3
 ```
 

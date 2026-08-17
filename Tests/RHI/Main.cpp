@@ -8,6 +8,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <csignal>
+#include <stacktrace>
 #include <vector>
 #include <glm/vec4.hpp>
 
@@ -71,7 +73,10 @@ namespace
             { SGCore::SST_FRAGMENT, fragment_source },
         };
         SGCore::SGSLEVulkanizer::Config vulkanizeConfig;
-        vulkanizeConfig.m_target = SGCore::SGSLEVulkanizer::Target::OPENGL;
+        // OPENGL dialect for the GL backends, VULKAN (explicit set/binding, SPIR-V compiled by the
+        // device) for the explicit ones
+        vulkanizeConfig.m_target = isOpenGLAPI(properties.m_apiType) ? SGCore::SGSLEVulkanizer::Target::OPENGL
+                                                                     : SGCore::SGSLEVulkanizer::Target::VULKAN;
         const auto report = SGCore::SGSLEVulkanizer::vulkanize(stages, vulkanizeConfig);
         check(report.m_looseUniformsMoved == 2, "2 loose uniforms moved into per-stage blocks");
 
@@ -79,7 +84,7 @@ namespace
         programDesc.m_debugName = "rhi_triangle";
         for(const auto& stage : stages) programDesc.m_stages.push_back({ stage.m_type, stage.m_code, { } });
         auto program = device->createShaderProgram(programDesc);
-        check(program && program->isValid(), "shader program compiles and links on GL46");
+        check(program && program->isValid(), "shader program compiles and links");
         if(!program || !program->isValid())
         {
             std::printf("%s\n", program ? program->getLog().c_str() : "(no program)");
@@ -90,11 +95,11 @@ namespace
         const auto& reflection = program->getReflection();
         const auto* vsBlock = reflection.findBinding("SGLegacyUniforms_vertex");
         const auto* fsBlock = reflection.findBinding("SGLegacyUniforms_fragment");
-        check(vsBlock && fsBlock, "GL reflection reports both legacy blocks");
+        check(vsBlock && fsBlock, "reflection reports both legacy blocks");
         const auto* offsetMember = reflection.findMember("SGLegacyUniforms_vertex", "u_offset");
         const auto* tintMember = reflection.findMember("SGLegacyUniforms_fragment", "u_tint");
-        check(offsetMember && tintMember, "GL reflection reports block members");
-        check(reflection.m_vertexInputs.size() == 2, "GL reflection reports 2 vertex inputs");
+        check(offsetMember && tintMember, "reflection reports block members");
+        check(reflection.m_vertexInputs.size() == 2, "reflection reports 2 vertex inputs");
         if(!vsBlock || !fsBlock || !offsetMember || !tintMember) { g_exitCode = 2; return; }
         std::printf("reflection: vs block binding=%u size=%u, fs block binding=%u size=%u, u_offset@%u, u_tint@%u\n",
                     vsBlock->m_binding, vsBlock->m_blockSize, fsBlock->m_binding, fsBlock->m_blockSize,
@@ -245,8 +250,22 @@ namespace
     }
 }
 
+namespace
+{
+    // an abort() at exit (VMA/driver asserts in Debug) is otherwise invisible in CI logs
+    void onAbort(int)
+    {
+        std::fprintf(stderr, "abort() called, stack:\n%s\n", std::to_string(std::stacktrace::current()).c_str());
+        std::fflush(stderr);
+    }
+}
+
 int main(int argc, char** argv)
 {
+    std::signal(SIGABRT, onAbort);
+    // unbuffered so crash-handler output survives when stdout is a file/pipe
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    std::setvbuf(stderr, nullptr, _IONBF, 0);
     for(int i = 1; i < argc; ++i)
     {
         if(std::strcmp(argv[i], "--gapi") == 0 && i + 1 < argc)

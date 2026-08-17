@@ -113,6 +113,8 @@
          glslang::SPIRV
          glslang::glslang-default-resource-limits
          unofficial::spirv-reflect
+         Vulkan::Headers
+         GPUOpen::VulkanMemoryAllocator
 
          ${SG_BULLET_LIBS}
          ${FREETYPE_LIBRARIES}
@@ -121,7 +123,7 @@
  )
 
  if(SG_TARGET_PLATFORM_PC)
-   target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
+   target_link_libraries(${PROJECT_NAME} PUBLIC glfw Vulkan::Loader)
  endif()
 
  if(SG_TARGET_OS_ANDROID)

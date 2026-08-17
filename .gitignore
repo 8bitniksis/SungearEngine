@@ -67,3 +67,12 @@ Projects
 Models
 
 installed
+
+# RUNTIME ARTIFACTS ----
+# логи движка (Logger пишет в <app>/logs), дампы SGSL-транслятора,
+# кадры смоук-теста и отчёт краш-хендлера — создаются при каждом запуске
+logs/
+SGSLETranslatorOutputDebug/
+smoke_*.png
+last_crash.log
+# -----------------------

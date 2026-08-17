@@ -33,6 +33,8 @@ description: >-
 - [ECS-компоненты рендера: что где перезаписывается](#ecs-компоненты-рендера-что-где-перезаписывается)
 - [Тени и батчинг](#тени-и-батчинг)
 - [Шейдеры SGSL](#шейдеры-sgsl)
+- [RHI (новый слой, 2026-08-17)](#rhi-новый-слой-2026-08-17)
+- [Vulkan-бэкенд (2026-08-17)](#vulkan-бэкенд-2026-08-17)
 - [Смоук-тест](#смоук-тест)
 - [Мелкие грабли API](#мелкие-грабли-api)
 
@@ -102,9 +104,10 @@ description: >-
   (`GL4Renderer` создаёт GL4-варианты).
 - Первым симптомом «шейдер пустой» в логе будет ошибка компиляции геометрической стадии
   про примитивы, а не про сам код — проверять дефайны раньше, чем GLSL.
-- `Graphics/API/Vulkan/` — нерабочий скелет 2023 г., `vulkan.h` закомментирован,
-  зависимости в `vcpkg.json` нет; `VkRenderer::confirmSupport()` возвращает `false`.
-  Не достраивать — переписывать (этап 2).
+- **Vulkan (`Graphics/API/Vulkan/`, этап 2, 2026-08-17)**: RHI работает (`SGRHITest --gapi
+  vulkan` PASS, ноль ошибок validation), legacy-фасады частично — см. раздел «Vulkan-бэкенд»
+  ниже. Vulkan **вне** дефолтного списка предпочтения `GAPISelector`, пока смоук на нём не идёт
+  (только `SG_GAPI=vulkan` / `setPreference`).
 - ImGui-бэкенд захардкожен на `imgui_impl_opengl3` (`ImGuiWrap/ImGuiLayer.cpp`).
 
 ## ECS-компоненты рендера: что где перезаписывается
@@ -270,6 +273,60 @@ description: >-
   Для Vulkan — фасад с таблицей юнитов (RHI_DESIGN), не правка проходов.
 - Правило миграции: проход перенесён, только когда `SGSmokeTest --gapi gl46 --reference`
   даёт 0 %; legacy-путь остаётся откатом до конца этапа.
+
+## Vulkan-бэкенд (2026-08-17)
+
+Файлы: `Graphics/API/Vulkan/VulkanCommon.h` (`SG_VK_CHECK`), `VulkanTypesCaster` (форматы,
+состояния), `RHI/VulkanContext` (instance/surface/device/VMA; `VMA_IMPLEMENTATION` — только в
+`VulkanContext.cpp`), `RHI/VulkanDevice` (IDevice + сервисы: `acquireCommandBuffer`,
+`submitRaw` → id, `waitForSubmission`, `immediateSubmit`, транзиентные descriptor set'ы,
+`createStagingBuffer`, `retire`), `RHI/VulkanSwapchain`, `RHI/VulkanTexture` (image+view+
+sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, `RHI/VulkanPipelineState`,
+`RHI/VulkanDescriptorSet`, `RHI/VulkanCommandList`; фасады `VkRenderer`, `VkTexture2D`,
+`VkFrameBuffer` (остальные `Vk*` — заглушки 2023 г.). Подробное «почему» — RHI_DESIGN,
+«Vulkan-бэкенд». Грабли:
+
+- **Флип только в окно.** Offscreen-проходы без флипа viewport'а (память = GL, readback без
+  переворота), проходы в swapchain — отрицательная высота viewport'а + инверсия front face
+  (`vkCmdSetFrontFace`, dynamic state). `readScreenPixels` возвращает строки снизу вверх.
+  Не добавлять флипов в шейдеры/тесты — они совпадут с GL как есть.
+- **`PipelineStateDesc::m_renderTargets` не заполняется** — не полагаться на него: VkPipeline
+  создаётся лениво на первый draw под форматы активного прохода (`VulkanPassFormats`).
+- **Барьеры внутри dynamic rendering запрещены**: все переходы layout'ов — в
+  `beginRenderPass`/`endRenderPass`/вне прохода. Offscreen-текстуры «отдыхают» в
+  `SHADER_READ_ONLY_OPTIMAL` (после endRenderPass, после аплоада, сразу после
+  `createAsFrameBufferAttachment`). Текстура не в этом layout'е при bind внутри прохода → warning
+  в лог и мусор/ошибка валидации.
+- **`uploadData` внутри прохода** пишется во второй (transfer) командный буфер списка, который
+  сабмитится перед основным. Host-visible буферы пишутся сразу memcpy'ем (как GL46).
+- **Descriptor set = CPU-таблица**, материализуется на draw'е под layout программы; биндинги, не
+  существующие в программе, пропускаются молча. Set index в `bindDescriptorSet` ≤ 3.
+- **Пул дескрипторов** должен содержать все типы, что встречаются в шейдерах движка: экранный
+  шейдер имеет `samplerBuffer` (UNIFORM_TEXEL_BUFFER) — без него validation warning.
+- **Завершение — три отдельные грабли, все дают одно и то же окно «Debug Error! abort() has been
+  called» уже ПОСЛЕ `PASS` теста** (падение в статической деструкции, не в рендере; на GL46 их не
+  видно, потому что там некому ругаться). Порядок разбора: смотреть `PROBLEMATIC FRAME INFO` в
+  выводе `HwExceptionHandler`, там точный кадр.
+  1. `IRenderer::shutdown()` (конец `CoreMain::startCycle`) → `VkRenderer::shutdown` →
+     `VulkanContext::destroy` освобождает GPU-часть всех ещё живых `VulkanTexture`/`VulkanGPUBuffer`
+     (реестр `registerResource`) — иначе `vmaDestroyAllocator` в Debug делает `abort()`, потому что
+     `VkTexture2D` в AssetManager переживают рендерер.
+  2. **Фасады не должны ходить через `VkRenderer::getInstance()`** — только через
+     `VkRenderer::getLiveDevice()` (статический указатель, обнуляемый в `shutdown()`). Деструкторы
+     ассетов (`IMaterial` → `AssetRef<ITexture2D>` → `VkTexture2D::destroyOnGPU`) выполняются в
+     статической деструкции, когда сам синглтон уже разрушен: `getInstance()` вернёт непустой
+     `shared_ptr` на мёртвый объект, и `getVulkanDevice()` прочитает мусор → запись в
+     `m_deferredDestroy` разрушенного `VulkanDevice`.
+  3. Не-Vulkan соседи по тому же порядку: `AudioDevice::shutdown()` (иначе `~AudioDevice` в
+     static-деструкторе зовёт AL-ошибку → `SG_LOG_E` → уже разрушенный логгер) и
+     `FontsManager::~FontsManager` (сначала `m_fontsAssetsManager->clear()`, иначе `FT_Done_Face`
+     по освобождённой `FT_Library`). Контекст — `shared_ptr`, ресурсы держат его.
+- **Loader — DLL** (`vulkan-1.dll` из vcpkg bin или системный) — не трогать Vulkan в статических
+  деструкторах.
+- Шум в логе `[Vulkan validation] loader_get_json … Bandicam/EOSOverlay`, `Removing layer
+  VK_LAYER_OBS_HOOK` — сторонние implicit-слои системы, не ошибки движка.
+- Тест запускать из корня репозитория: `${enginePath}` = `./Resources`, иначе экранный шейдер
+  не грузится и screen blit проваливается.
 
 ## Смоук-тест
 

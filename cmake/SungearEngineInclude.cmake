@@ -210,4 +210,13 @@ list(APPEND SungearEngine_LIBS "glslang::glslang-default-resource-limits")
 find_package(unofficial-spirv-reflect CONFIG REQUIRED)
 list(APPEND SungearEngine_LIBS "unofficial::spirv-reflect")
 
+find_package(VulkanHeaders CONFIG REQUIRED)
+list(APPEND SungearEngine_LIBS "Vulkan::Headers")
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+list(APPEND SungearEngine_LIBS "GPUOpen::VulkanMemoryAllocator")
+if(NOT SG_TARGET_OS_ANDROID)
+    find_package(VulkanLoader CONFIG REQUIRED)
+    list(APPEND SungearEngine_LIBS "Vulkan::Loader")
+endif()
+
 list(APPEND SungearEngine_INCLUDE_DIRS "$ENV{SUNGEAR_SOURCES_ROOT}")

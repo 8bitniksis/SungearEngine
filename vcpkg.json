@@ -117,5 +117,15 @@
   }, {
     "name" : "spirv-reflect",
     "version>=" : "1.4.309.0"
+  }, {
+    "name" : "vulkan-headers",
+    "version>=" : "1.4.309.0"
+  }, {
+    "name" : "vulkan-loader",
+    "version>=" : "1.4.309.0",
+    "platform" : "!android"
+  }, {
+    "name" : "vulkan-memory-allocator",
+    "version>=" : "3.3.0"
   } ]
 }

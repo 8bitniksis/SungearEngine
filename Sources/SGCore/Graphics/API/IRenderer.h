@@ -159,6 +159,11 @@ namespace SGCore
 
         virtual void reload() noexcept = 0;
 
+        /// Called once when the main loop ends, while every subsystem is still alive. Explicit
+        /// backends release their device here instead of in static destruction (the loader DLL may
+        /// already be gone by then). GL backends have nothing to do.
+        virtual void shutdown() noexcept { }
+
         [[nodiscard]] GAPIType getGAPIType() const noexcept;
 
         [[nodiscard]] RenderState& getCachedRenderState() noexcept;

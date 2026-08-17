@@ -437,7 +437,24 @@ void SGCore::VkShader::useFloat(const std::string& uniformName, const float& f)
 
 void SGCore::VkShader::useInteger(const std::string& uniformName, const int& i)
 {
-    writeLegacy(uniformName, &i, sizeof(int));
+    if(writeLegacy(uniformName, &i, sizeof(int))) return;
+
+    // On GL a sampler is an int uniform and glUniform1i on it selects the texture unit, so passes set
+    // samplers both ways: useTextureBlock() and useInteger() (PostProcessPass does the latter for an
+    // effect's own attachments). Route the second form to the same unit table, otherwise the sampler
+    // stays unbound and reads the dummy white texture — which is what turned the SSAO composite white.
+    if(isSamplerBinding(uniformName)) useTextureBlock(uniformName, i);
+}
+
+bool SGCore::VkShader::isSamplerBinding(const std::string& uniformName) const noexcept
+{
+    const auto bracket = uniformName.find('[');
+    const auto* binding = m_reflection.findBinding(bracket == std::string::npos ? std::string_view(uniformName)
+                                                                                : std::string_view(uniformName).substr(0, bracket));
+    if(!binding) return false;
+    return binding->m_type == ShaderDescriptorType::COMBINED_IMAGE_SAMPLER ||
+           binding->m_type == ShaderDescriptorType::SAMPLED_IMAGE ||
+           binding->m_type == ShaderDescriptorType::UNIFORM_TEXEL_BUFFER;
 }
 
 bool SGCore::VkShader::isUniformExists(const std::string& uniformName) const noexcept

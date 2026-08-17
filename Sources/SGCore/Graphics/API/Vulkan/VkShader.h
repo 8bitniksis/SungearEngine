@@ -90,6 +90,8 @@ namespace SGCore
         void destroyLegacyBlocks() noexcept;
 
         [[nodiscard]] bool isLegacyMember(std::string_view uniformName) const noexcept;
+        /// True when the program declares `uniformName` (or its array base) as a sampler / texel buffer.
+        [[nodiscard]] bool isSamplerBinding(const std::string& uniformName) const noexcept;
         bool writeLegacy(std::string_view uniformName, const void* data, std::uint32_t size) noexcept;
 
         Ref<IShaderProgram> m_rhiProgram;

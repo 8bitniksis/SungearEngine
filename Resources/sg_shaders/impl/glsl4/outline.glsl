@@ -71,11 +71,17 @@ flat in int vs_pass;
 in vec2 vs_quadUV;
 in vec3 vs_fragPos;
 
+// Every output is assigned on every path: a fragment output left unassigned is undefined, and the
+// backends differ exactly there — GL happened to leave the attachment alone, Vulkan wrote whatever
+// was in the register. Pass 3 relied on that for the whole frame: wherever there is no outline it
+// assigned nothing and expected attachment 7 to keep the scene colour, which on Vulkan turned the
+// final image into noise. "Leave the attachment alone" is spelled discard (no blending, no depth).
 void main()
 {
     if(vs_pass == 1) // firstly drawing object with outline color
     {
         outColor = u_outlineColor;
+        outScaledColor = vec4(0.0);
     }
     else if(vs_pass == 2) // then scaling this object and taking only outline (taking fragments that are not inside the object)
     {
@@ -107,6 +113,10 @@ void main()
 
         vec3 curCol = texture(u_outlineBuffer, vs_quadUV).rgb;
 
+        // attachment 0 is still a draw target in this pass and neighbouring fragments sample it:
+        // write back what is there so nothing else lands in it
+        outColor = vec4(curCol, 1.0);
+
         // writing outline only if fragment is not inside the object in vs_pass == 1
         if(curCol == vec3(0.0, 0.0, 0.0))
         {
@@ -121,10 +131,18 @@ void main()
     {
         vec3 outlineCol = texture(u_scaledOutlineBuffer, vs_quadUV).rgb;
 
-        if(outlineCol != vec3(0.0))
+        // no outline here: attachment 7 keeps the scene colour
+        if(outlineCol == vec3(0.0))
         {
-            outColor = vec4(outlineCol, 1.0);
+            discard;
         }
+
+        outColor = vec4(outlineCol, 1.0);
+        outScaledColor = vec4(0.0);
+    }
+    else
+    {
+        discard;
     }
 }
 

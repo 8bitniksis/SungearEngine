@@ -425,20 +425,35 @@ bool SGCore::VkRenderer::prepareMeshRHI(IMeshData& meshData) noexcept
 
 void SGCore::VkRenderer::renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState)
 {
-    if(!meshData || !m_device || !m_currentLegacyShader) return;
+    static int s_calls = 0;
+    const bool diag = s_calls++ < 12;
+
+    if(!meshData || !m_device || !m_currentLegacyShader)
+    {
+        return;
+    }
 
     const auto& program = m_currentLegacyShader->getRHIProgram();
-    if(!program || !program->isValid()) return;
+    if(!program || !program->isValid())
+    {
+        return;
+    }
 
     // Unlike GL46, the draw must join the render pass the framebuffer facade has open: on Vulkan a
     // pass lives inside one command buffer, so a separate list could not draw into it.
     // the draw must join the render pass the framebuffer facade has open: on Vulkan a pass lives
     // inside one command buffer, so a separate command list could not draw into it
     auto* commandList = static_cast<VulkanCommandList*>(m_frameBufferCommandList.get());
-    if(!commandList || !commandList->isRecording()) return;
+    if(!commandList || !commandList->isRecording())
+    {
+        return;
+    }
 
     auto* mutableMesh = const_cast<IMeshData*>(meshData);
-    if(!prepareMeshRHI(*mutableMesh)) return;
+    if(!prepareMeshRHI(*mutableMesh))
+    {
+        return;
+    }
 
     const auto& rhi = meshData->m_rhi;
 

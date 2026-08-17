@@ -79,6 +79,8 @@ namespace SGCore
         };
 
         void resetState() noexcept;
+        /// Submits work recorded but not yet handed to the device (see begin()).
+        void flushRecordedWork() noexcept;
         /// Binds pipeline / sets / viewport / scissor / push constants that changed since the last draw.
         bool flushState() noexcept;
         [[nodiscard]] VkDescriptorSet materializeSet(SetSlot& slot, std::uint32_t setIndex) noexcept;

@@ -25,6 +25,11 @@ namespace SGSmoke
         std::uint8_t m_channelThreshold = 8;
         /// Test fails if the fraction of differing pixels exceeds this value.
         double m_maxDifferingPixelsFraction = 0.01;
+        /// Capture the geometry pass output (m_layersFrameBuffer) instead of the post-processed one
+        /// (m_layersFXFrameBuffer). Localizes at which stage two backends start to disagree.
+        bool m_captureGeometryPass = false;
+        /// Color attachment index to read back; the default is the one the app displays.
+        std::optional<std::uint32_t> m_captureAttachment;
     };
 
     /**

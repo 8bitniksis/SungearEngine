@@ -23,6 +23,8 @@ namespace
             "  --frames <n>           frame index to capture (default 60)\n"
             "  --output <file.png>    where to write the captured frame (default smoke_<gapi>.png)\n"
             "  --reference <file.png> compare against this image; exit code 1 on mismatch\n"
+            "  --geometry-pass        read back the geometry framebuffer, not the post-processed one\n"
+            "  --attachment <n>       color attachment index to read back (default: the displayed one)\n"
             "  --threshold <0..255>   per-channel difference tolerated per pixel (default 8)\n"
             "  --max-diff <fraction>  max fraction of differing pixels to still pass (default 0.01)\n"
             "  --help\n"
@@ -73,6 +75,16 @@ int main(int argc, char** argv)
         else if(arg == "--reference" && hasValue)
         {
             options.m_referencePath = std::filesystem::path(argv[++i]);
+        }
+        else if(arg == "--geometry-pass")
+        {
+            options.m_captureGeometryPass = true;
+        }
+        else if(arg == "--attachment" && hasValue)
+        {
+            unsigned int attachment = 0;
+            if(!parseNumber(argv[++i], attachment)) { printUsage(); return 2; }
+            options.m_captureAttachment = attachment;
         }
         else if(arg == "--threshold" && hasValue)
         {

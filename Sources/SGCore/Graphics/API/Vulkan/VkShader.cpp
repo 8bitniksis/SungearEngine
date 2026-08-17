@@ -264,6 +264,12 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet(
 
         const auto& shared = VulkanSharedUniformBuffers::get(binding.m_name);
         if(shared) m_descriptorSet->setUniformBuffer(binding.m_binding, shared);
+        {
+            static std::set<std::string> s_reported;
+            if(s_reported.insert(binding.m_name).second)
+            {
+            }
+        }
     }
 
     // join the two halves of the unit model: sampler name -> unit (recorded here) -> texture (VulkanTextureUnits)

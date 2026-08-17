@@ -194,8 +194,19 @@ void SGSmoke::SmokeApp::captureAndFinish() noexcept
         return;
     }
 
+    const auto& sourceFrameBuffer = m_options.m_captureGeometryPass ? frameReceiver->m_layersFrameBuffer
+                                                                    : frameReceiver->m_layersFXFrameBuffer;
+    auto attachment = m_attachmentToDisplay;
+    if(m_options.m_captureAttachment)
+    {
+        attachment = static_cast<SGFrameBufferAttachmentType>(
+            std::to_underlying(SGFrameBufferAttachmentType::SGG_COLOR_ATTACHMENT0) + *m_options.m_captureAttachment);
+    }
+    SG_LOG_I("Smoke: capturing {} of the {} framebuffer.", sgFrameBufferAttachmentTypeToString(attachment),
+             m_options.m_captureGeometryPass ? "geometry" : "post-processed");
+
     SGCore::AttachmentReadback readback;
-    if(!frameReceiver->m_layersFXFrameBuffer->readAttachmentPixels(m_attachmentToDisplay, readback))
+    if(!sourceFrameBuffer || !sourceFrameBuffer->readAttachmentPixels(attachment, readback))
     {
         SG_LOG_E("Smoke: current graphics API does not support frame readback.");
         m_exitCode = 2;

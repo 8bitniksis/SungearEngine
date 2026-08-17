@@ -55,7 +55,12 @@ void SGCore::VulkanCommandList::resetState() noexcept
 
 void SGCore::VulkanCommandList::begin() noexcept
 {
+    // Someone else is still recording into this list — the legacy facades share one, and a pass
+    // binds its framebuffer without unbinding the previous one. Finish and SUBMIT that work:
+    // vkBeginCommandBuffer below resets the buffer, which would silently discard everything
+    // recorded so far (observed as an empty geometry framebuffer on the smoke scene).
     if(m_recording) end();
+    if(m_ended && !m_submitted) flushRecordedWork();
 
     if(m_submitted || m_commandBuffer == VK_NULL_HANDLE)
     {
@@ -105,6 +110,23 @@ void SGCore::VulkanCommandList::end() noexcept
     SG_VK_CHECK(vkEndCommandBuffer(m_commandBuffer));
     m_recording = false;
     m_ended = true;
+}
+
+void SGCore::VulkanCommandList::flushRecordedWork() noexcept
+{
+    const bool touchedSwapchain = m_touchedSwapchain;
+    auto submission = takeSubmission();
+    if(submission.m_commandBuffers.empty()) return;
+
+    if(touchedSwapchain)
+    {
+        if(const auto acquireSemaphore = m_device.getVulkanSwapchain().takeAcquireSemaphore(); acquireSemaphore != VK_NULL_HANDLE)
+        {
+            submission.m_waitSemaphores.push_back(acquireSemaphore);
+            submission.m_waitStages.push_back(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+        }
+    }
+    m_device.submitRaw(std::move(submission));
 }
 
 SGCore::VulkanSubmission SGCore::VulkanCommandList::takeSubmission() noexcept
@@ -244,6 +266,7 @@ void SGCore::VulkanCommandList::beginRenderPass(const RenderPassBeginDesc& desc)
 
     vkCmdBeginRendering(m_commandBuffer, &renderingInfo);
     m_inPass = true;
+    if(colorInfos.size() == 8)
 
     // pipeline variants depend on the pass: rebind at the next draw
     m_boundPipeline = VK_NULL_HANDLE;

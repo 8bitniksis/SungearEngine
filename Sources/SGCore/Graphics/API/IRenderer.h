@@ -75,7 +75,7 @@ namespace SGCore
          * @param transformComponent - The transform component of this "camera".
          */
         virtual void prepareUniformBuffers(const RenderingBase& renderingBase,
-                                           const Transform& transform) { }
+                                           const Transform& transform);
 
         virtual void renderMeshData(const IMeshData* meshData,
                                     const MeshRenderState& meshRenderState) { }

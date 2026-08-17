@@ -14,7 +14,6 @@
 #include "VkIndexBuffer.h"
 #include "VkTexture2D.h"
 #include "VkUniformBuffer.h"
-#include "VkMeshData.h"
 #include "VkFrameBuffer.h"
 #include "VkCubemapTexture.h"
 #include "RHI/VulkanContext.h"
@@ -47,6 +46,8 @@ namespace SGCore
 
         void prepareFrame(const glm::ivec2& windowSize) override;
 
+        void renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState) override;
+
         void useState(const RenderState& newRenderState, bool forceState = false) noexcept final;
         void useBlendingState(const BlendingState& newBlendingState, bool forceState = false) noexcept final;
         void useMeshRenderState(const MeshRenderState& newMeshRenderState, bool forceState = false) noexcept final;
@@ -68,7 +69,7 @@ namespace SGCore
         [[nodiscard]] VkUniformBuffer* createUniformBuffer() override;
         [[nodiscard]] VkFrameBuffer* createFrameBuffer() override;
 
-        [[nodiscard]] VkMeshData* createMeshData() const override;
+        [[nodiscard]] IMeshData* createMeshData() const override;
 
         void bindScreenFrameBuffer() const noexcept final;
         void setViewport(int x, int y, int width, int height) const noexcept final;
@@ -111,6 +112,15 @@ namespace SGCore
         bool m_screenBlitInitTried { };
 
         VkShader* m_currentLegacyShader { };
+
+        /// Vulkan has no global pipeline state: the passes' use*State() calls are remembered here
+        /// and folded into the PSO of the next draw, as GL46 does with its cached state.
+        RenderState m_cachedRenderState { };
+        BlendingState m_cachedBlendingState { };
+        MeshRenderState m_cachedMeshRenderState { };
+
+        /// Uploads the mesh into RHI buffers and builds its VertexInputDesc once (IMeshData::m_rhi).
+        bool prepareMeshRHI(IMeshData& meshData) noexcept;
 
         /// Not a member of the singleton on purpose: it must stay readable after the singleton dies.
         static inline VulkanDevice* s_liveDevice = nullptr;

@@ -10,6 +10,7 @@
 
 #include "RHI/VulkanDescriptorSet.h"
 #include "RHI/VulkanDevice.h"
+#include "RHI/VulkanSharedUniformBuffers.h"
 #include "RHI/VulkanTexture.h"
 #include "RHI/VulkanTextureUnits.h"
 #include "SGCore/Memory/Assets/Materials/IMaterial.h"
@@ -253,19 +254,49 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::VkShader::buildDescriptorSet(
 {
     if(!m_descriptorSet) return m_descriptorSet;
 
+    // the engine's shared blocks (CameraData, ProgramDataBlock, ...) are declared without an explicit
+    // binding, so they are matched by block name, not by IUniformBuffer::setLayoutLocation
+    for(const auto& binding : m_reflection.m_bindings)
+    {
+        if(binding.m_type != ShaderDescriptorType::UNIFORM_BUFFER) continue;
+        if(binding.m_name.rfind("SGLegacyUniforms", 0) == 0) continue; // this shader's own block
+
+        const auto& shared = VulkanSharedUniformBuffers::get(binding.m_name);
+        if(shared) m_descriptorSet->setUniformBuffer(binding.m_binding, shared);
+    }
+
     // join the two halves of the unit model: sampler name -> unit (recorded here) -> texture (VulkanTextureUnits)
     for(const auto& binding : m_reflection.m_bindings)
     {
         if(binding.m_type != ShaderDescriptorType::COMBINED_IMAGE_SAMPLER &&
            binding.m_type != ShaderDescriptorType::SAMPLED_IMAGE) continue;
 
-        const auto unitIt = m_samplerUnits.find(binding.m_name);
-        if(unitIt == m_samplerUnits.end()) continue; // the pass never bound this sampler
+        auto* vulkanSet = static_cast<VulkanDescriptorSet*>(m_descriptorSet.get());
 
-        const auto& texture = VulkanTextureUnits::get(unitIt->second);
-        if(!texture) continue;
+        // an array sampler is addressed element-wise by the passes ("mat_diffuseSamplers[0]"), while
+        // reflection reports one binding under the base name — resolve every element
+        const std::uint32_t count = binding.m_count == 0 ? 1 : binding.m_count;
+        bool anyBound = false;
+        for(std::uint32_t element = 0; element < count; ++element)
+        {
+            auto unitIt = m_samplerUnits.find(binding.m_name + "[" + std::to_string(element) + "]");
+            if(unitIt == m_samplerUnits.end() && element == 0) unitIt = m_samplerUnits.find(binding.m_name);
+            if(unitIt == m_samplerUnits.end()) continue;
 
-        static_cast<VulkanDescriptorSet*>(m_descriptorSet.get())->setVulkanTexture(binding.m_binding, texture);
+            const auto& texture = VulkanTextureUnits::get(unitIt->second);
+            if(!texture) continue;
+
+            vulkanSet->setVulkanTexture(binding.m_binding, texture, element);
+            anyBound = true;
+        }
+
+        // a sampler the shader declares but nothing bound still needs a descriptor, or the draw is
+        // invalid; the fallback keeps whatever sits in unit 0 rather than leaving the slot empty
+        if(!anyBound)
+        {
+            const auto& fallback = VulkanTextureUnits::get(0);
+            if(fallback) vulkanSet->setVulkanTexture(binding.m_binding, fallback, 0);
+        }
     }
 
     return m_descriptorSet;

@@ -283,8 +283,9 @@ description: >-
 `createStagingBuffer`, `retire`), `RHI/VulkanSwapchain`, `RHI/VulkanTexture` (image+view+
 sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, `RHI/VulkanPipelineState`,
 `RHI/VulkanDescriptorSet`, `RHI/VulkanCommandList`; фасады `VkRenderer`, `VkTexture2D`,
-`VkFrameBuffer`, `VkShader` (`VkUniformBuffer`, `VkMeshData`, `VkVertexArray`, `VkVertexBuffer`,
-`VkIndexBuffer`, `VkCubemapTexture` — ещё заглушки 2023 г.). Подробное «почему» — RHI_DESIGN,
+`VkFrameBuffer`, `VkShader`, `VkUniformBuffer` (`VkMeshData`, `VkVertexArray`, `VkVertexBuffer`,
+`VkIndexBuffer`, `VkCubemapTexture` — ещё заглушки 2023 г., поэтому геометрия не отправляется и
+смоук на Vulkan даёт чёрный кадр при полностью отработавшей сцене). Подробное «почему» — RHI_DESIGN,
 «Vulkan-бэкенд». Грабли:
 
 - **Флип только в окно.** Offscreen-проходы без флипа viewport'а (память = GL, readback без
@@ -335,10 +336,30 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
   `vkCmdCopyBufferToImage` считает объём по VkFormat. Есть текстуры движка, где эти два не
   сходятся (RGBA8-данные при 8-байтовом формате) — `VkTexture2D::uploadRegion` такой аплоад
   отклоняет с сообщением, а не выдаёт невалидную копию (`VulkanTypesCaster::formatTexelSize`).
+- **Общие UBO движка привязываются ПО ИМЕНИ БЛОКА, а не по `setLayoutLocation`.** `CameraData`,
+  `ProgramDataBlock`, `SpotLightsBlock`, `AtmosphereBlock` объявлены в шейдерах без явного
+  `layout(binding)`, поэтому на Vulkan биндинг им раздаёт вулканизатор, и номера 1–4 из
+  `setLayoutLocation` ничего не значат. `VkUniformBuffer::prepare()` регистрируется в
+  `RHI/VulkanSharedUniformBuffers` по `m_blockName`, `VkShader::buildDescriptorSet()` ищет там
+  каждый отражённый UBO, кроме своих `SGLegacyUniforms_*`. UBO без `m_blockName` — предупреждение.
+- **Сами общие UBO создаются в `IRenderer::init()`** (перенесены из `GL4Renderer::init()`
+  2026-08-17), там же `IRenderer::prepareUniformBuffers` — это данные движка, не GL. Новый бэкенд
+  получает их бесплатно; проверено, что GL46/GL4 после переноса дают смоук 0.000 %.
 - **Таблица юнитов** (`RHI/VulkanTextureUnits` + `VkShader::m_samplerUnits`): `useTextureBlock(name, U)`
   пишет половину «сэмплер → юнит», `VkTexture2D::bind(U)` (и `VkFrameBuffer::bindAttachment`,
   который делегирует в неё) — половину «юнит → текстура»; `VkShader::buildDescriptorSet()`
   соединяет их по рефлексии перед draw'ом. Проходы не меняются.
+- **Draw'ы обязаны идти в тот же командный список, где открыт проход.** На GL46 команды
+  немедленные, поэтому `renderMeshData` работал на отдельном списке; на Vulkan проход живёт внутри
+  одного командного буфера, так что `VkRenderer::renderMeshData` пишет в
+  `m_frameBufferCommandList` (тот, что открыл `VkFrameBuffer::bind()`) и молча выходит, если тот не
+  в состоянии записи.
+- **Не переопределять `IMeshData::prepare()` в бэкенде.** GL этого не делает —
+  `createMeshData()` возвращает базовый `IMeshData`. Заглушка `VkMeshData` 2023 г. переопределяла
+  `prepare()` пустым телом, из-за чего у **каждого** меша не было буферов вершин и Vulkan рисовал
+  чёрный кадр при нуле ошибок; класс удалён 2026-08-17.
+- **Массивы сэмплеров**: проходы адресуют элементы (`mat_diffuseSamplers[0]`), а рефлексия отдаёт
+  одно биндинг-имя без индекса — `VkShader::buildDescriptorSet` перебирает `[i]` до `m_count`.
 - **Loader — DLL** (`vulkan-1.dll` из vcpkg bin или системный) — не трогать Vulkan в статических
   деструкторах.
 - Шум в логе `[Vulkan validation] loader_get_json … Bandicam/EOSOverlay`, `Removing layer

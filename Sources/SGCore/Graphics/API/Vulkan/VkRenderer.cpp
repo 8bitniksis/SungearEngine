@@ -9,8 +9,10 @@
 #include "RHI/VulkanCommandList.h"
 #include "RHI/VulkanDevice.h"
 #include "RHI/VulkanGPUBuffer.h"
+#include "RHI/VulkanSharedUniformBuffers.h"
 #include "RHI/VulkanTextureUnits.h"
 #include "SGCore/Graphics/API/AttachmentReadback.h"
+#include "SGCore/ImportedScenesArch/IMeshData.h"
 #include "SGCore/Graphics/API/IGPUObjectsStorage.h"
 #include "SGCore/Graphics/RHI/ScreenBlit.h"
 #include "SGCore/Logger/Logger.h"
@@ -41,6 +43,7 @@ void SGCore::VkRenderer::shutdown() noexcept
     s_liveDevice = nullptr;
     m_currentLegacyShader = nullptr;
     VulkanTextureUnits::clear();
+    VulkanSharedUniformBuffers::clear();
 
     if(m_device) m_device->waitIdle();
     m_screenBlit.reset();
@@ -156,9 +159,11 @@ SGCore::VkFrameBuffer* SGCore::VkRenderer::createFrameBuffer()
     return new VkFrameBuffer;
 }
 
-SGCore::VkMeshData* SGCore::VkRenderer::createMeshData() const
+SGCore::IMeshData* SGCore::VkRenderer::createMeshData() const
 {
-    return new VkMeshData;
+    // no backend-specific mesh data: IMeshData::prepare() builds the buffers through the factories
+    // (the old VkMeshData stubbed prepare() out, which left every mesh without vertex buffers)
+    return new IMeshData;
 }
 
 void SGCore::VkRenderer::bindScreenFrameBuffer() const noexcept
@@ -295,15 +300,139 @@ const std::shared_ptr<SGCore::VkRenderer>& SGCore::VkRenderer::getInstance() noe
     return s_instancePointer;
 }
 
-void SGCore::VkRenderer::useState(const SGCore::RenderState& /*newRenderState*/, bool /*forceState*/) noexcept
+void SGCore::VkRenderer::useState(const SGCore::RenderState& newRenderState, bool /*forceState*/) noexcept
 {
-    // state lives in pipelines on Vulkan
+    // state lives in pipelines on Vulkan: remember it for the next draw's PSO
+    m_cachedRenderState = newRenderState;
 }
 
-void SGCore::VkRenderer::useBlendingState(const SGCore::BlendingState& /*newBlendingState*/, bool /*forceState*/) noexcept
+void SGCore::VkRenderer::useBlendingState(const SGCore::BlendingState& newBlendingState, bool /*forceState*/) noexcept
 {
+    m_cachedBlendingState = newBlendingState;
 }
 
-void SGCore::VkRenderer::useMeshRenderState(const SGCore::MeshRenderState& /*newMeshRenderState*/, bool /*forceState*/) noexcept
+void SGCore::VkRenderer::useMeshRenderState(const SGCore::MeshRenderState& newMeshRenderState, bool /*forceState*/) noexcept
 {
+    m_cachedMeshRenderState = newMeshRenderState;
+}
+
+bool SGCore::VkRenderer::prepareMeshRHI(IMeshData& meshData) noexcept
+{
+    auto& rhi = meshData.m_rhi;
+    if(rhi.m_prepared) return true;
+    if(!m_device || meshData.m_vertices.empty()) return false;
+
+    const auto& verticesBuffer = meshData.getVerticesBuffer();
+    if(!verticesBuffer || verticesBuffer->getAttributes().empty()) return false;
+
+    // vertex layout: slot 0 = interleaved Vertex, slots 1.. = per-vertex color sets (as on GL46)
+    rhi.m_vertexInput = VertexInputDesc { };
+    rhi.m_vertexInput.m_slots.push_back({ 0, static_cast<std::uint32_t>(sizeof(Vertex)), false });
+    for(const auto& attribute : verticesBuffer->getAttributes())
+    {
+        rhi.m_vertexInput.m_attributes.push_back({ attribute.m_location, 0, attribute.m_dataType,
+                                                   static_cast<std::uint32_t>(attribute.m_scalarsCount),
+                                                   static_cast<std::uint32_t>(attribute.m_offsetInStruct),
+                                                   attribute.m_isNormalized });
+    }
+
+    const auto& colorsBuffers = meshData.getVerticesColorsBuffers();
+    for(std::size_t i = 0; i < colorsBuffers.size(); ++i)
+    {
+        const auto& colorsBuffer = colorsBuffers[i];
+        if(!colorsBuffer) continue;
+        const auto slot = static_cast<std::uint32_t>(1 + i);
+        std::uint32_t stride = 4 * sizeof(float);
+        for(const auto& attribute : colorsBuffer->getAttributes())
+        {
+            stride = static_cast<std::uint32_t>(attribute.m_stride);
+            rhi.m_vertexInput.m_attributes.push_back({ attribute.m_location, slot, attribute.m_dataType,
+                                                       static_cast<std::uint32_t>(attribute.m_scalarsCount),
+                                                       static_cast<std::uint32_t>(attribute.m_offsetInStruct),
+                                                       attribute.m_isNormalized });
+        }
+        rhi.m_vertexInput.m_slots.push_back({ slot, stride, false });
+    }
+
+    // buffers; write() on a device-local buffer stages and submits immediately, which is what a
+    // one-off mesh upload wants (and it works outside a render pass, unlike a command list)
+    GPUBufferDesc bufferDesc;
+    bufferDesc.m_access = GPUMemoryAccess::SGG_DEVICE_LOCAL;
+
+    bufferDesc.m_usage = GPUBufferUsage::SGG_VERTEX_BUFFER;
+    bufferDesc.m_size = meshData.m_vertices.size() * sizeof(Vertex);
+    bufferDesc.m_debugName = "mesh_vertices";
+    rhi.m_vertexBuffer = m_device->createBuffer(bufferDesc);
+    if(!rhi.m_vertexBuffer) return false;
+    rhi.m_vertexBuffer->write(meshData.m_vertices.data(), bufferDesc.m_size);
+
+    rhi.m_vertexColorsBuffers.clear();
+    for(std::size_t i = 0; i < meshData.m_verticesColors.size(); ++i)
+    {
+        const auto& colors = meshData.m_verticesColors[i].m_colors;
+        bufferDesc.m_size = colors.size() * sizeof(colors[0]);
+        bufferDesc.m_debugName = "mesh_colors";
+        auto buffer = bufferDesc.m_size > 0 ? m_device->createBuffer(bufferDesc) : nullptr;
+        if(buffer) buffer->write(colors.data(), bufferDesc.m_size);
+        rhi.m_vertexColorsBuffers.push_back(buffer);
+    }
+
+    if(!meshData.m_indices.empty())
+    {
+        bufferDesc.m_usage = GPUBufferUsage::SGG_INDEX_BUFFER;
+        bufferDesc.m_size = meshData.m_indices.size() * sizeof(std::uint32_t);
+        bufferDesc.m_debugName = "mesh_indices";
+        rhi.m_indexBuffer = m_device->createBuffer(bufferDesc);
+        if(rhi.m_indexBuffer) rhi.m_indexBuffer->write(meshData.m_indices.data(), bufferDesc.m_size);
+    }
+
+    rhi.m_prepared = true;
+    return true;
+}
+
+void SGCore::VkRenderer::renderMeshData(const IMeshData* meshData, const MeshRenderState& meshRenderState)
+{
+    if(!meshData || !m_device || !m_currentLegacyShader) return;
+
+    const auto& program = m_currentLegacyShader->getRHIProgram();
+    if(!program || !program->isValid()) return;
+
+    // Unlike GL46, the draw must join the render pass the framebuffer facade has open: on Vulkan a
+    // pass lives inside one command buffer, so a separate list could not draw into it.
+    // the draw must join the render pass the framebuffer facade has open: on Vulkan a pass lives
+    // inside one command buffer, so a separate command list could not draw into it
+    auto* commandList = static_cast<VulkanCommandList*>(m_frameBufferCommandList.get());
+    if(!commandList || !commandList->isRecording()) return;
+
+    auto* mutableMesh = const_cast<IMeshData*>(meshData);
+    if(!prepareMeshRHI(*mutableMesh)) return;
+
+    const auto& rhi = meshData->m_rhi;
+
+    PipelineStateDesc pipelineDesc;
+    pipelineDesc.m_program = program;
+    pipelineDesc.m_renderState = m_cachedRenderState;
+    pipelineDesc.m_blendingState = m_cachedRenderState.m_globalBlendingState;
+    pipelineDesc.m_meshRenderState = meshRenderState;
+    pipelineDesc.m_vertexInput = rhi.m_vertexInput;
+    pipelineDesc.m_debugName = "legacy_mesh";
+    auto pipeline = m_device->getOrCreatePipeline(pipelineDesc);
+
+    commandList->bindPipeline(pipeline);
+    commandList->bindDescriptorSet(0, m_currentLegacyShader->buildDescriptorSet());
+    commandList->bindVertexBuffer(0, rhi.m_vertexBuffer);
+    for(std::size_t i = 0; i < rhi.m_vertexColorsBuffers.size(); ++i)
+    {
+        if(rhi.m_vertexColorsBuffers[i]) commandList->bindVertexBuffer(static_cast<std::uint32_t>(1 + i), rhi.m_vertexColorsBuffers[i]);
+    }
+
+    if(meshRenderState.m_useIndices && rhi.m_indexBuffer)
+    {
+        commandList->bindIndexBuffer(rhi.m_indexBuffer, SGIndexType::SGG_UINT32);
+        commandList->drawIndexed(static_cast<std::uint32_t>(meshData->m_indices.size()));
+    }
+    else
+    {
+        commandList->draw(static_cast<std::uint32_t>(meshData->m_vertices.size()));
+    }
 }

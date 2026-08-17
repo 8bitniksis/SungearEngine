@@ -37,6 +37,19 @@ void SGCore::VulkanDescriptorSet::setTexture(std::uint32_t binding, const Ref<IT
     ++m_version;
 }
 
+void SGCore::VulkanDescriptorSet::setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex) noexcept
+{
+    auto& entry = m_entries[{ binding, arrayIndex }];
+    // the same texture in the same slot is the common case (a pass re-binding every frame):
+    // do not bump the version, or every draw would allocate a fresh descriptor set
+    if(entry.m_vulkanTexture == texture && !entry.m_texture && !entry.m_buffer) return;
+
+    entry = { };
+    entry.m_vulkanTexture = texture;
+    entry.m_arrayIndex = arrayIndex;
+    ++m_version;
+}
+
 void SGCore::VulkanDescriptorSet::setCubemap(std::uint32_t binding, const Ref<ICubemapTexture>& texture) noexcept
 {
     auto& entry = m_entries[{ binding, 0 }];

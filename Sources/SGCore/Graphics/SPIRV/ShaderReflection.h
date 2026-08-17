@@ -42,6 +42,10 @@ namespace SGCore
             std::string m_typeName;
             std::uint32_t m_offset { };
             std::uint32_t m_size { };
+            /// For an array member: the stride between elements ("name[i]" addressing).
+            /// For a plain member: its padded size. Both backends must fill it this way — GL
+            /// reports GL_ARRAY_STRIDE, SPIR-V takes the stride from the array traits (its own
+            /// padded_size covers the whole array and would walk past the block).
             std::uint32_t m_paddedSize { };
             /// Product of array dimensions, 1 for scalars.
             std::uint32_t m_arrayCount = 1;

@@ -9,6 +9,7 @@
 
 #include "RHI/VulkanDevice.h"
 #include "RHI/VulkanGPUBuffer.h"
+#include "RHI/VulkanTextureUnits.h"
 #include "SGCore/Graphics/API/IFrameBuffer.h"
 #include "SGCore/Logger/Logger.h"
 #include "VkRenderer.h"
@@ -110,6 +111,17 @@ void SGCore::VkTexture2D::uploadRegion(const std::uint8_t* data, std::uint32_t w
     const std::uint64_t dstPixel = static_cast<std::uint64_t>(dstChannels) * channelSize;
     const std::uint64_t pixelCount = static_cast<std::uint64_t>(width) * height;
 
+    // the copy is sized by the image format, so the staging layout must match it exactly; the
+    // engine's (channels, dataType) pair does not always agree with the declared internal format
+    const std::uint32_t texelSize = VulkanTypesCaster::formatTexelSize(m_vulkanTexture->getFormat());
+    if(texelSize == 0 || dstPixel != texelSize)
+    {
+        SG_LOG_E("VkTexture2D: can not upload '{}': CPU layout is {} byte(s) per pixel ({} channels of {} byte(s)) "
+                 "but the image format needs {}. The texture stays empty.",
+                 m_vulkanTexture->getDebugName(), dstPixel, dstChannels, channelSize, texelSize);
+        return;
+    }
+
     auto staging = device->createStagingBuffer(pixelCount * dstPixel, "texture_upload");
     if(!staging) return;
 
@@ -168,9 +180,11 @@ void SGCore::VkTexture2D::destroyOnGPU() noexcept
     m_vulkanTexture.reset();
 }
 
-void SGCore::VkTexture2D::bind(const std::uint8_t& /*textureUnit*/) const noexcept
+void SGCore::VkTexture2D::bind(const std::uint8_t& textureUnit) const noexcept
 {
-    // unit model does not exist on Vulkan: textures are bound through descriptor sets
+    // Vulkan has no texture units: record "unit N holds this texture" and let VkShader join it with
+    // the sampler->unit half at draw time (see VulkanTextureUnits)
+    VulkanTextureUnits::set(textureUnit, m_vulkanTexture);
 }
 
 void* SGCore::VkTexture2D::getTextureNativeHandler() const noexcept

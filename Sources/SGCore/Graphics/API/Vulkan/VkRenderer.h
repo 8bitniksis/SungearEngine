@@ -23,6 +23,7 @@ namespace SGCore
 {
     class VulkanDevice;
     class ScreenBlit;
+    class VkShader;
 
     /// The Vulkan renderer: owns the VulkanContext (instance/device) and the RHI VulkanDevice.
     /// Legacy IRenderer factories return Vk* facades; those not yet backed by the RHI (shaders,
@@ -85,6 +86,11 @@ namespace SGCore
         [[nodiscard]] VulkanDevice* getVulkanDevice() const noexcept { return m_device.get(); }
         [[nodiscard]] VulkanContext& getContext() noexcept { return *m_context; }
 
+        /// The shader the passes bound last: Vulkan has no "current program", so draws take the
+        /// program (and its legacy uniform blocks / sampler table) from here, as GL46 does.
+        void setCurrentLegacyShader(VkShader* shader) noexcept { m_currentLegacyShader = shader; }
+        [[nodiscard]] VkShader* getCurrentLegacyShader() const noexcept { return m_currentLegacyShader; }
+
         /// The command list legacy VkFrameBuffer::bind()/unbind() record into (one per renderer).
         [[nodiscard]] ICommandList* getFrameBufferCommandList() noexcept;
         [[nodiscard]] const Ref<ICommandList>& getFrameBufferCommandListRef() noexcept;
@@ -103,6 +109,8 @@ namespace SGCore
 
         std::unique_ptr<ScreenBlit> m_screenBlit;
         bool m_screenBlitInitTried { };
+
+        VkShader* m_currentLegacyShader { };
 
         /// Not a member of the singleton on purpose: it must stay readable after the singleton dies.
         static inline VulkanDevice* s_liveDevice = nullptr;

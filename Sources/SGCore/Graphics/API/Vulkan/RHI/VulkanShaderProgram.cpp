@@ -52,10 +52,11 @@ VkDescriptorType SGCore::VulkanShaderProgram::descriptorTypeToVk(ShaderDescripto
     }
 }
 
-SGCore::VulkanShaderProgram::VulkanShaderProgram(VulkanDevice& device, const ShaderProgramDesc& desc) noexcept : m_device(device)
+SGCore::VulkanShaderProgram::VulkanShaderProgram(VulkanDevice& device, const ShaderProgramDesc& desc) noexcept
 {
     m_debugName = desc.m_debugName;
     auto& context = device.getContext();
+    m_context = context.shared_from_this();
 
     // stages lacking SPIR-V get compiled from their GLSL (already vulkanized by the caller)
     std::vector<SPIRVCompiler::StageResult> compiledStages;
@@ -123,27 +124,44 @@ SGCore::VulkanShaderProgram::VulkanShaderProgram(VulkanDevice& device, const Sha
     if(!buildLayouts()) return;
 
     m_valid = true;
+    context.registerResource(this, [this] { releaseGPU(); });
 }
 
 SGCore::VulkanShaderProgram::~VulkanShaderProgram()
 {
-    auto& context = m_device.getContext();
-    if(context.m_device == VK_NULL_HANDLE) return;
+    if(m_context) m_context->unregisterResource(this);
+    releaseGPU();
+}
 
-    if(m_pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(context.m_device, m_pipelineLayout, nullptr);
+void SGCore::VulkanShaderProgram::releaseGPU() noexcept
+{
+    if(!m_context || m_context->m_device == VK_NULL_HANDLE)
+    {
+        m_pipelineLayout = VK_NULL_HANDLE;
+        m_setLayouts.clear();
+        m_stages.clear();
+        m_valid = false;
+        return;
+    }
+
+    if(m_pipelineLayout != VK_NULL_HANDLE) vkDestroyPipelineLayout(m_context->m_device, m_pipelineLayout, nullptr);
     for(const auto layout : m_setLayouts)
     {
-        if(layout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(context.m_device, layout, nullptr);
+        if(layout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(m_context->m_device, layout, nullptr);
     }
     for(const auto& stage : m_stages)
     {
-        if(stage.m_module != VK_NULL_HANDLE) vkDestroyShaderModule(context.m_device, stage.m_module, nullptr);
+        if(stage.m_module != VK_NULL_HANDLE) vkDestroyShaderModule(m_context->m_device, stage.m_module, nullptr);
     }
+    m_pipelineLayout = VK_NULL_HANDLE;
+    m_setLayouts.clear();
+    m_stages.clear();
+    m_valid = false;
 }
 
 bool SGCore::VulkanShaderProgram::buildLayouts() noexcept
 {
-    auto& context = m_device.getContext();
+    auto& context = *m_context;
 
     std::uint32_t setCount = 0;
     for(const auto& binding : m_reflection.m_bindings) setCount = std::max(setCount, binding.m_set + 1);

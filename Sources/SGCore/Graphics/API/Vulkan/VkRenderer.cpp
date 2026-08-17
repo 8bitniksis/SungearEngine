@@ -9,6 +9,7 @@
 #include "RHI/VulkanCommandList.h"
 #include "RHI/VulkanDevice.h"
 #include "RHI/VulkanGPUBuffer.h"
+#include "RHI/VulkanTextureUnits.h"
 #include "SGCore/Graphics/API/AttachmentReadback.h"
 #include "SGCore/Graphics/API/IGPUObjectsStorage.h"
 #include "SGCore/Graphics/RHI/ScreenBlit.h"
@@ -38,6 +39,8 @@ void SGCore::VkRenderer::shutdown() noexcept
     // legacy facades stop reaching the device from here on (assets are destroyed later, in static
     // destruction, when this object may already be gone)
     s_liveDevice = nullptr;
+    m_currentLegacyShader = nullptr;
+    VulkanTextureUnits::clear();
 
     if(m_device) m_device->waitIdle();
     m_screenBlit.reset();

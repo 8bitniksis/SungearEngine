@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include <sgcore_export.h>
@@ -44,6 +45,9 @@ namespace SGCore
         [[nodiscard]] VkFrontFace getFrontFace() const noexcept { return m_frontFace; }
         [[nodiscard]] bool usesIndices() const noexcept { return m_desc.m_meshRenderState.m_useIndices; }
 
+        /// Destroys every built VkPipeline; see VulkanShaderProgram::releaseGPU().
+        void releaseGPU() noexcept;
+
     private:
         struct Variant
         {
@@ -53,7 +57,7 @@ namespace SGCore
 
         [[nodiscard]] VkPipeline build(const VulkanPassFormats& formats) noexcept;
 
-        VulkanDevice& m_device;
+        std::shared_ptr<VulkanContext> m_context;
         std::vector<Variant> m_variants;
         VkFrontFace m_frontFace = VK_FRONT_FACE_CLOCKWISE;
     };

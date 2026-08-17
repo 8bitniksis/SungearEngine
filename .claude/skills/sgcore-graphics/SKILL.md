@@ -283,7 +283,8 @@ description: >-
 `createStagingBuffer`, `retire`), `RHI/VulkanSwapchain`, `RHI/VulkanTexture` (image+view+
 sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, `RHI/VulkanPipelineState`,
 `RHI/VulkanDescriptorSet`, `RHI/VulkanCommandList`; фасады `VkRenderer`, `VkTexture2D`,
-`VkFrameBuffer` (остальные `Vk*` — заглушки 2023 г.). Подробное «почему» — RHI_DESIGN,
+`VkFrameBuffer`, `VkShader` (`VkUniformBuffer`, `VkMeshData`, `VkVertexArray`, `VkVertexBuffer`,
+`VkIndexBuffer`, `VkCubemapTexture` — ещё заглушки 2023 г.). Подробное «почему» — RHI_DESIGN,
 «Vulkan-бэкенд». Грабли:
 
 - **Флип только в окно.** Offscreen-проходы без флипа viewport'а (память = GL, readback без
@@ -321,6 +322,23 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
      static-деструкторе зовёт AL-ошибку → `SG_LOG_E` → уже разрушенный логгер) и
      `FontsManager::~FontsManager` (сначала `m_fontsAssetsManager->clear()`, иначе `FT_Done_Face`
      по освобождённой `FT_Library`). Контекст — `shared_ptr`, ресурсы держат его.
+- **RHI-объект, который может пережить устройство, обязан держать `shared_ptr<VulkanContext>` и
+  регистрироваться в реестре, а не хранить `VulkanDevice&`.** Так сделаны `VulkanTexture`,
+  `VulkanGPUBuffer`, `VulkanShaderProgram`, `VulkanPipelineState`. Проверено 2026-08-17:
+  `~VulkanShaderProgram` с `m_device.getContext()` падал при выходе, потому что `VkShader` —
+  ассет и умирает после рендерера.
+- **`ShaderReflection::BlockMember::m_paddedSize` = страйд ОДНОГО элемента массива**, не размер
+  всего массива. GL даёт `GL_ARRAY_STRIDE`, а `padded_size` из SPIRV-Reflect — размер всего члена,
+  поэтому SPIR-V-путь берёт `array.stride` (иначе `name[i]` уезжает за пределы блока: 2026-08-17
+  на смоуке — 280 ошибок «write of 12 bytes at offset 8416 exceeds buffer size 4320»).
+- **Аплоад текстуры сайзится по формату изображения**, а не по `m_channelsCount`/`m_dataType`:
+  `vkCmdCopyBufferToImage` считает объём по VkFormat. Есть текстуры движка, где эти два не
+  сходятся (RGBA8-данные при 8-байтовом формате) — `VkTexture2D::uploadRegion` такой аплоад
+  отклоняет с сообщением, а не выдаёт невалидную копию (`VulkanTypesCaster::formatTexelSize`).
+- **Таблица юнитов** (`RHI/VulkanTextureUnits` + `VkShader::m_samplerUnits`): `useTextureBlock(name, U)`
+  пишет половину «сэмплер → юнит», `VkTexture2D::bind(U)` (и `VkFrameBuffer::bindAttachment`,
+  который делегирует в неё) — половину «юнит → текстура»; `VkShader::buildDescriptorSet()`
+  соединяет их по рефлексии перед draw'ом. Проходы не меняются.
 - **Loader — DLL** (`vulkan-1.dll` из vcpkg bin или системный) — не трогать Vulkan в статических
   деструкторах.
 - Шум в логе `[Vulkan validation] loader_get_json … Bandicam/EOSOverlay`, `Removing layer

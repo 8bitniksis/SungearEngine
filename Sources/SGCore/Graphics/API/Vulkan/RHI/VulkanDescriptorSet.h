@@ -16,6 +16,7 @@ namespace SGCore
 {
     class VulkanDevice;
     class VulkanShaderProgram;
+    class VulkanTexture;
 
     /// Binding table on the CPU side. Bound to a command list it materializes into a transient
     /// VkDescriptorSet matching the current pipeline's layout (see VulkanCommandList::flushState()).
@@ -30,6 +31,9 @@ namespace SGCore
             bool m_storage { };
             Ref<ITexture2D> m_texture;
             Ref<ICubemapTexture> m_cubemap;
+            /// Set when the caller already holds the backend texture (VkShader resolving texture
+            /// units); takes precedence over m_texture, which needs a VkTexture2D to unwrap.
+            Ref<VulkanTexture> m_vulkanTexture;
             std::uint32_t m_arrayIndex { };
         };
 
@@ -41,6 +45,9 @@ namespace SGCore
                               std::uint64_t offset = 0, std::uint64_t range = 0) noexcept override;
         void setTexture(std::uint32_t binding, const Ref<ITexture2D>& texture, std::uint32_t arrayIndex = 0) noexcept override;
         void setCubemap(std::uint32_t binding, const Ref<ICubemapTexture>& texture) noexcept override;
+
+        /// Vulkan-only overload: binds a backend texture without going through a legacy facade.
+        void setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex = 0) noexcept;
 
         /// (binding, arrayIndex) -> entry
         [[nodiscard]] const std::map<std::pair<std::uint32_t, std::uint32_t>, Entry>& getEntries() const noexcept { return m_entries; }

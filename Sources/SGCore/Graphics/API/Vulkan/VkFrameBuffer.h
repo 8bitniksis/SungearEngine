@@ -21,6 +21,8 @@ namespace SGCore
     public:
         ~VkFrameBuffer() override;
 
+        void bindAttachment(const SGFrameBufferAttachmentType& attachmentType, const std::uint8_t& textureBlock) override;
+
         void bindAttachmentToDrawIn(const SGFrameBufferAttachmentType& attachmentType) override;
         void bindAttachmentsToDrawIn(const std::vector<SGFrameBufferAttachmentType>& attachmentsTypes) override;
         void bindAttachmentsToDrawIn(const std::set<SGFrameBufferAttachmentType>& attachmentsTypes) override;

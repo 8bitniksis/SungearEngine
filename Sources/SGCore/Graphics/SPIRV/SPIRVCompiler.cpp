@@ -103,8 +103,13 @@ namespace
             member.m_typeName = source.type_description && source.type_description->type_name ? source.type_description->type_name : "";
             member.m_offset = source.offset;
             member.m_size = source.size;
-            member.m_paddedSize = source.padded_size;
             member.m_arrayCount = arrayCount(source.array);
+            // m_paddedSize means "stride of one element" for arrays (see ShaderReflection):
+            // SPIRV-Reflect's padded_size is the padded size of the whole member instead, so an
+            // array takes its stride from the array traits — otherwise "name[i]" addressing
+            // walks past the end of the block
+            member.m_paddedSize = source.array.dims_count > 0 && source.array.stride > 0
+                                  ? source.array.stride : source.padded_size;
             members.push_back(std::move(member));
         }
         return members;

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -44,10 +45,16 @@ namespace SGCore
         static VkShaderStageFlags stageMaskToVk(shader_stages_mask_t mask) noexcept;
         static VkDescriptorType descriptorTypeToVk(ShaderDescriptorType type) noexcept;
 
+        /// Destroys the Vulkan objects; the program becomes an empty shell. Registered in the
+        /// context so a program still referenced at shutdown releases them before the device dies.
+        void releaseGPU() noexcept;
+
     private:
         bool buildLayouts() noexcept;
 
-        VulkanDevice& m_device;
+        /// Held by value, not as VulkanDevice&: shader assets outlive the renderer and are destroyed
+        /// in static destruction, where a reference to the device would already dangle.
+        std::shared_ptr<VulkanContext> m_context;
         std::vector<StageModule> m_stages;
         std::vector<VkDescriptorSetLayout> m_setLayouts;
         VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;

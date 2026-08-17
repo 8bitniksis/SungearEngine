@@ -14,7 +14,9 @@
 namespace SGCore
 {
     class ITexture2D;
-    class ICubemapTexture;
+    // ICubemapTexture is a struct (Graphics/API/ICubemapTexture.h): MSVC mangles struct and class
+    // differently, so a "class" forward declaration here silently breaks linking
+    struct ICubemapTexture;
 
     /**
      * A set of resource bindings (uniform buffers, samplers) addressed by binding number — the

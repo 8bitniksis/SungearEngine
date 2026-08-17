@@ -438,10 +438,11 @@ VkDescriptorSet SGCore::VulkanCommandList::materializeSet(SetSlot& slot, std::ui
             write.pBufferInfo = &bufferInfos.back();
             m_submission.m_keepAlive.push_back(entry.m_buffer);
         }
-        else if(entry.m_texture)
+        else if(entry.m_vulkanTexture || entry.m_texture)
         {
-            const auto* vkTexture = dynamic_cast<const VkTexture2D*>(entry.m_texture.get());
-            const auto texture = vkTexture ? vkTexture->getVulkanTexture() : nullptr;
+            const auto* vkTexture = entry.m_texture ? dynamic_cast<const VkTexture2D*>(entry.m_texture.get()) : nullptr;
+            const auto texture = entry.m_vulkanTexture ? entry.m_vulkanTexture
+                                                       : (vkTexture ? vkTexture->getVulkanTexture() : nullptr);
             if(!texture || texture->getView() == VK_NULL_HANDLE || texture->getSampler() == VK_NULL_HANDLE) continue;
             if(texture->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
             {

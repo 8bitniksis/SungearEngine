@@ -91,6 +91,15 @@ void SGCore::VkFrameBuffer::unbind() const
     m_boundThroughRHI = false;
 }
 
+void SGCore::VkFrameBuffer::bindAttachment(const SGFrameBufferAttachmentType& attachmentType, const std::uint8_t& textureBlock)
+{
+    // same contract as GL4FrameBuffer: hand the unit to the attachment itself
+    if(const auto attachment = getAttachment(attachmentType))
+    {
+        attachment->bind(textureBlock);
+    }
+}
+
 void SGCore::VkFrameBuffer::bindAttachmentToDrawIn(const SGFrameBufferAttachmentType& attachmentType)
 {
     bindAttachmentsToDrawIn(std::vector<SGFrameBufferAttachmentType> { attachmentType });

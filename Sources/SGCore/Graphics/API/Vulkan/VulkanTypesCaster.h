@@ -22,6 +22,11 @@ namespace SGCore
         /// True when sggInternalFormatToVk() widened a 3-channel format to 4 channels.
         [[nodiscard]] static bool needsAlphaExpansion(SGGColorInternalFormat format) noexcept;
 
+        /// Bytes one texel of a VkFormat occupies. Buffer<->image copies are sized by the image
+        /// format, not by the CPU-side channel count, so uploads must use this.
+        /// 0 for formats without a plain byte size (compressed, planar).
+        [[nodiscard]] static std::uint32_t formatTexelSize(VkFormat format) noexcept;
+
         [[nodiscard]] static bool isDepthFormat(SGGColorInternalFormat format) noexcept;
         [[nodiscard]] static bool isDepthStencilFormat(SGGColorInternalFormat format) noexcept;
 

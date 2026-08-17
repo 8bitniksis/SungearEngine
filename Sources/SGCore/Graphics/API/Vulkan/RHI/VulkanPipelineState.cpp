@@ -9,8 +9,9 @@
 #include "VulkanDevice.h"
 #include "VulkanShaderProgram.h"
 
-SGCore::VulkanPipelineState::VulkanPipelineState(VulkanDevice& device, const PipelineStateDesc& desc) noexcept : m_device(device)
+SGCore::VulkanPipelineState::VulkanPipelineState(VulkanDevice& device, const PipelineStateDesc& desc) noexcept
 {
+    m_context = device.getContext().shared_from_this();
     m_desc = desc;
     m_debugName = desc.m_debugName;
 
@@ -19,16 +20,26 @@ SGCore::VulkanPipelineState::VulkanPipelineState(VulkanDevice& device, const Pip
     // and the command list inverts this dynamically.
     m_frontFace = desc.m_meshRenderState.m_facesCullingPolygonsOrder == SGPolygonsOrder::SGG_CCW
                   ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
+    m_context->registerResource(this, [this] { releaseGPU(); });
 }
 
 SGCore::VulkanPipelineState::~VulkanPipelineState()
 {
-    auto& context = m_device.getContext();
-    if(context.m_device == VK_NULL_HANDLE) return;
-    for(const auto& variant : m_variants)
+    if(m_context) m_context->unregisterResource(this);
+    releaseGPU();
+}
+
+void SGCore::VulkanPipelineState::releaseGPU() noexcept
+{
+    if(m_context && m_context->m_device != VK_NULL_HANDLE)
     {
-        if(variant.m_pipeline != VK_NULL_HANDLE) vkDestroyPipeline(context.m_device, variant.m_pipeline, nullptr);
+        for(const auto& variant : m_variants)
+        {
+            if(variant.m_pipeline != VK_NULL_HANDLE) vkDestroyPipeline(m_context->m_device, variant.m_pipeline, nullptr);
+        }
     }
+    m_variants.clear();
 }
 
 SGCore::VulkanShaderProgram* SGCore::VulkanPipelineState::getProgram() const noexcept
@@ -55,7 +66,7 @@ VkPipeline SGCore::VulkanPipelineState::getOrCreate(const VulkanPassFormats& for
 
 VkPipeline SGCore::VulkanPipelineState::build(const VulkanPassFormats& formats) noexcept
 {
-    auto& context = m_device.getContext();
+    auto& context = *m_context;
     const auto* program = getProgram();
     if(!program || !program->isValid())
     {

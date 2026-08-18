@@ -137,8 +137,9 @@ void main()
             discard;
         }
 
+        // only attachment 7 is bound here, so location 0 is the whole output set: assigning
+        // outScaledColor would be a write with no attachment behind it
         outColor = vec4(outlineCol, 1.0);
-        outScaledColor = vec4(0.0);
     }
     else
     {

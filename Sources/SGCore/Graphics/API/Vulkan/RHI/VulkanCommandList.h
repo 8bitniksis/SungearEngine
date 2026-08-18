@@ -84,6 +84,8 @@ namespace SGCore
         /// Binds pipeline / sets / viewport / scissor / push constants that changed since the last draw.
         bool flushState() noexcept;
         [[nodiscard]] VkDescriptorSet materializeSet(SetSlot& slot, std::uint32_t setIndex) noexcept;
+        /// True when the texture is a color or depth attachment of the pass being recorded.
+        [[nodiscard]] bool isPassAttachment(const Ref<VulkanTexture>& texture) const noexcept;
         void applyViewportScissor() noexcept;
         void endUploadRecording() noexcept;
 

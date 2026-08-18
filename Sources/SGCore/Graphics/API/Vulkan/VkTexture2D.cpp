@@ -90,7 +90,11 @@ void SGCore::VkTexture2D::createAsFrameBufferAttachment(IFrameBuffer* parentFram
     // an interpolated sample never equals the stored texel
     desc.m_filter = VK_FILTER_NEAREST;
     desc.m_addressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    desc.m_debugName = "attachment_" + sgFrameBufferAttachmentTypeToString(attachmentType);
+    // the framebuffer address is part of the name: the engine has several framebuffers with the same
+    // attachment slots, and identical names make a RenderDoc capture unreadable
+    desc.m_debugName = "attachment_" + sgFrameBufferAttachmentTypeToString(attachmentType) + "@" +
+                       std::to_string(reinterpret_cast<std::uintptr_t>(parentFrameBuffer) & 0xFFFFu) + "_" +
+                       std::to_string(desc.m_width) + "x" + std::to_string(desc.m_height);
     m_vulkanTexture = VulkanTexture::create(device->getContext(), desc);
     if(!m_vulkanTexture) return;
 
@@ -144,6 +148,21 @@ void SGCore::VkTexture2D::uploadRegion(const std::uint8_t* data, std::uint32_t w
         SG_LOG_E("VkTexture2D: can not upload '{}': CPU layout is {} byte(s) per pixel ({} channels of {} byte(s)) "
                  "but the image format needs {}. The texture stays empty.",
                  m_vulkanTexture->getDebugName(), dstPixel, dstChannels, channelSize, texelSize);
+
+        // an image left in UNDEFINED is still bound and sampled by the passes, which is a validation
+        // error on top of the refused upload: give it defined contents and the layout shaders expect
+        device->immediateSubmit([&](VkCommandBuffer commandBuffer) {
+            m_vulkanTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+            VkImageSubresourceRange range { };
+            range.aspectMask = m_vulkanTexture->getAspect();
+            range.levelCount = VK_REMAINING_MIP_LEVELS;
+            range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+            const VkClearColorValue value { };
+            vkCmdClearColorImage(commandBuffer, m_vulkanTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &value, 1, &range);
+
+            m_vulkanTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        });
         return;
     }
 

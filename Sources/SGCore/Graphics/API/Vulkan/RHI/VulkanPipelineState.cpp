@@ -4,6 +4,8 @@
 
 #include "VulkanPipelineState.h"
 
+#include <algorithm>
+
 #include "SGCore/Graphics/API/Vulkan/VulkanTypesCaster.h"
 #include "SGCore/Logger/Logger.h"
 #include "VulkanDevice.h"
@@ -95,9 +97,24 @@ VkPipeline SGCore::VulkanPipelineState::build(const VulkanPassFormats& formats) 
         binding.inputRate = slot.m_perInstance ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
         bindings.push_back(binding);
     }
+
+    // The layout comes from the mesh, which carries every attribute the engine knows about, while a
+    // given program reads only some of them (the outline and shadow shaders take positions and bones,
+    // the post-process ones nothing at all). Declaring an attribute no stage consumes is legal but
+    // reported by validation for every pipeline, so the mesh layout is intersected with what the
+    // program actually declares. The program is part of the PSO cache key, so this stays per-variant.
+    const auto consumesLocation = [program](std::uint32_t location) {
+        const auto& inputs = program->getReflection().m_vertexInputs;
+        if(inputs.empty()) return true; // no reflection data: keep the layout as the mesh gave it
+        return std::any_of(inputs.begin(), inputs.end(),
+                           [location](const auto& input) { return input.m_location == location; });
+    };
+
     std::vector<VkVertexInputAttributeDescription> attributes;
     for(const auto& attribute : m_desc.m_vertexInput.m_attributes)
     {
+        if(!consumesLocation(attribute.m_location)) continue;
+
         VkVertexInputAttributeDescription description { };
         description.location = attribute.m_location;
         description.binding = attribute.m_bufferSlot;

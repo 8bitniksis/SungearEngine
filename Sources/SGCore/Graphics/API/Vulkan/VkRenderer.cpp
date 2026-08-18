@@ -307,34 +307,10 @@ SGCore::VulkanDevice* SGCore::VkRenderer::getLiveDevice() noexcept
 
 const SGCore::Ref<SGCore::VulkanTexture>& SGCore::VkRenderer::getDummyTexture() noexcept
 {
-    if(m_dummyTexture || !m_device) return m_dummyTexture;
-
-    VulkanTextureDesc desc;
-    desc.m_width = 1;
-    desc.m_height = 1;
-    desc.m_format = VK_FORMAT_R8G8B8A8_UNORM;
-    desc.m_usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    desc.m_debugName = "dummy_white";
-    m_dummyTexture = VulkanTexture::create(*m_context, desc);
-    if(!m_dummyTexture) return m_dummyTexture;
-
-    const std::uint8_t white[4] = { 255, 255, 255, 255 };
-    auto staging = m_device->createStagingBuffer(sizeof(white), "dummy_white_upload");
-    if(!staging) return m_dummyTexture;
-    std::memcpy(staging->getMappedPointer(), white, sizeof(white));
-
-    m_device->immediateSubmit([&](VkCommandBuffer commandBuffer) {
-        m_dummyTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        VkBufferImageCopy region { };
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.layerCount = 1;
-        region.imageExtent = { 1, 1, 1 };
-        vkCmdCopyBufferToImage(commandBuffer, staging->getHandle(), m_dummyTexture->getImage(),
-                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        m_dummyTexture->recordTransition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    });
-
-    return m_dummyTexture;
+    // the image itself belongs to the device: command lists need it too (see VulkanCommandList's
+    // substitution for an attachment that is bound as a sampler while the pass draws into it)
+    static const Ref<VulkanTexture> none;
+    return m_device ? m_device->getDummyTexture() : none;
 }
 
 VkBufferView SGCore::VkRenderer::getDummyTexelBufferView() noexcept
@@ -403,6 +379,9 @@ void SGCore::VkRenderer::drawLegacyArray(const Ref<IVertexArray>& vertexArray, c
 
     auto* commandList = static_cast<VulkanCommandList*>(m_frameBufferCommandList.get());
     if(!commandList || !commandList->isRecording()) return;
+
+    // callers pass whatever the batch currently holds, and an empty batch means nothing to rasterize
+    if(meshRenderState.m_useIndices ? indicesCount <= 0 : verticesCount <= 0) return;
 
     // deterministic buffer order → stable slot numbers → stable pipeline cache key (as on GL46)
     std::vector<IVertexBuffer*> buffers(vertexArray->getVertexBuffers().begin(), vertexArray->getVertexBuffers().end());

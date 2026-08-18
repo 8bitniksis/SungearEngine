@@ -477,9 +477,23 @@ VkDescriptorSet SGCore::VulkanCommandList::materializeSet(SetSlot& slot, std::ui
         else if(entry.m_vulkanTexture || entry.m_texture)
         {
             const auto* vkTexture = entry.m_texture ? dynamic_cast<const VkTexture2D*>(entry.m_texture.get()) : nullptr;
-            const auto texture = entry.m_vulkanTexture ? entry.m_vulkanTexture
-                                                       : (vkTexture ? vkTexture->getVulkanTexture() : nullptr);
+            auto texture = entry.m_vulkanTexture ? entry.m_vulkanTexture
+                                                 : (vkTexture ? vkTexture->getVulkanTexture() : nullptr);
             if(!texture || texture->getView() == VK_NULL_HANDLE || texture->getSampler() == VK_NULL_HANDLE) continue;
+
+            // The passes bind every attachment of a framebuffer as a texture up front and only then
+            // pick which one to draw into (PostProcessPass does exactly this), so a descriptor can end
+            // up pointing at the very image this pass renders to. Sampling it is undefined on GL and a
+            // validation error here, and the descriptor still has to be written or the driver drops the
+            // draw — so it gets the dummy. No shader of the engine reads what it writes; if one ever
+            // does, it will read white and this is the place to look.
+            if(isPassAttachment(texture))
+            {
+                const auto& dummy = m_device.getDummyTexture();
+                if(!dummy || dummy->getView() == VK_NULL_HANDLE) continue;
+                texture = dummy;
+            }
+
             if(texture->getLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
             {
                 if(m_inPass)
@@ -512,6 +526,13 @@ VkDescriptorSet SGCore::VulkanCommandList::materializeSet(SetSlot& slot, std::ui
         vkUpdateDescriptorSets(m_device.getContext().m_device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
     return transient.m_set;
+}
+
+bool SGCore::VulkanCommandList::isPassAttachment(const Ref<VulkanTexture>& texture) const noexcept
+{
+    if(!m_inPass || !texture) return false;
+    if(m_passDepthTexture == texture) return true;
+    return std::find(m_passColorTextures.begin(), m_passColorTextures.end(), texture) != m_passColorTextures.end();
 }
 
 bool SGCore::VulkanCommandList::flushState() noexcept

@@ -23,6 +23,7 @@ namespace SGCore
 {
     class VulkanGPUBuffer;
     class VulkanPipelineState;
+    class VulkanTexture;
 
     /// A transient descriptor set: allocated per bind, returned to its pool when the submission that
     /// used it retires.
@@ -103,6 +104,10 @@ namespace SGCore
         /// Host-visible staging buffer of the given size (TRANSFER_SRC).
         [[nodiscard]] Ref<VulkanGPUBuffer> createStagingBuffer(std::uint64_t size, const char* debugName) noexcept;
 
+        /// A 1x1 white image, created on first use. Vulkan refuses a draw whose declared descriptor was
+        /// never written, so anything that has no real texture to bind writes this one.
+        [[nodiscard]] const Ref<VulkanTexture>& getDummyTexture() noexcept;
+
         /// Recycles command buffers and descriptor sets of finished submissions.
         /// waitAll: block until every pending submission has finished.
         void retire(bool waitAll) noexcept;
@@ -159,5 +164,7 @@ namespace SGCore
         std::size_t m_currentUniformRegion { };
 
         std::unordered_map<std::size_t, std::vector<Ref<VulkanPipelineState>>> m_pipelineCache;
+
+        Ref<VulkanTexture> m_dummyTexture;
     };
 }

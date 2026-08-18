@@ -120,6 +120,10 @@ void main()
 
     layerVolume = calculatePPLayerVolume(SGPP_CurrentLayerIndex);
 
+    // the sky is not pickable, but the output has to be assigned: an unwritten fragment output is
+    // undefined, and this one goes into the picking attachment
+    pickingColor = vec3(0.0);
+
     layerWorldPosColor = vec3(vs_fragWorldPos) * 10.0;
 
     // layerWorldPosColor = vec3(1.0);

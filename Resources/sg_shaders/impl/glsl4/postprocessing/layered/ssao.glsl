@@ -69,8 +69,10 @@ void main()
 
     // return;
 
-    // just do nothing
-    if(texture(SGPP_LayersVolumes, finalUV).rgb != calculatePPLayerVolume(SGPP_CurrentLayerIndex).rgb) return;
+    // just do nothing — discard, not return: a `return` here leaves fragColor unassigned, and an
+    // unwritten fragment output is undefined. GL happened to leave the attachment alone, Vulkan wrote
+    // whatever was in the register, so this pass scribbled over the occlusion buffer outside the layer.
+    if(texture(SGPP_LayersVolumes, finalUV).rgb != calculatePPLayerVolume(SGPP_CurrentLayerIndex).rgb) discard;
 
     vec2 noiseTexSize = vec2(textureSize(SG_SSAO_noise, 0));
     vec2 noiseScale = programData.primaryMonitorSize / noiseTexSize;

@@ -4,8 +4,12 @@
 
 #include "VkTexture2D.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <vector>
+
+#include <glm/gtc/packing.hpp>
 
 #include "RHI/VulkanDevice.h"
 #include "RHI/VulkanGPUBuffer.h"
@@ -28,6 +32,88 @@ namespace
     {
         const auto size = getSGGDataTypeSizeInBytes(type);
         return size == 0 ? 1 : size;
+    }
+
+    using FormatChannelKind = SGCore::VulkanTypesCaster::FormatChannelKind;
+
+    /// One channel of the CPU buffer in the value space GL uploads through: byte channels come out
+    /// normalized, float and integer channels keep their magnitude.
+    float decodeSourceChannel(const std::uint8_t* source, SGGDataType type) noexcept
+    {
+        switch(type)
+        {
+            case SGGDataType::SGG_FLOAT: { float value; std::memcpy(&value, source, sizeof(value)); return value; }
+            case SGGDataType::SGG_BYTE: return std::max(static_cast<float>(*reinterpret_cast<const std::int8_t*>(source)) / 127.0f, -1.0f);
+            case SGGDataType::SGG_UNSIGNED_SHORT: { std::uint16_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
+            case SGGDataType::SGG_SHORT: { std::int16_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
+            case SGGDataType::SGG_UNSIGNED_INT: { std::uint32_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
+            case SGGDataType::SGG_INT: { std::int32_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
+            default: return static_cast<float>(*source) / 255.0f; // SGG_UNSIGNED_BYTE and anything byte-shaped
+        }
+    }
+
+    /// Writes a decoded channel in the image's own layout.
+    void encodeImageChannel(std::uint8_t* destination, FormatChannelKind kind, std::uint32_t size, float value) noexcept
+    {
+        switch(kind)
+        {
+            case FormatChannelKind::UNORM:
+            {
+                const float clamped = std::clamp(value, 0.0f, 1.0f);
+                if(size == 1) { *destination = static_cast<std::uint8_t>(std::lround(clamped * 255.0f)); return; }
+                const auto encoded = static_cast<std::uint16_t>(std::lround(clamped * 65535.0f));
+                std::memcpy(destination, &encoded, sizeof(encoded));
+                return;
+            }
+            case FormatChannelKind::SNORM:
+            {
+                const float clamped = std::clamp(value, -1.0f, 1.0f);
+                if(size == 1) { const auto e = static_cast<std::int8_t>(std::lround(clamped * 127.0f)); std::memcpy(destination, &e, sizeof(e)); return; }
+                const auto encoded = static_cast<std::int16_t>(std::lround(clamped * 32767.0f));
+                std::memcpy(destination, &encoded, sizeof(encoded));
+                return;
+            }
+            case FormatChannelKind::UINT:
+            {
+                const auto magnitude = static_cast<std::uint32_t>(std::llround(std::max(value, 0.0f)));
+                if(size == 1) { *destination = static_cast<std::uint8_t>(magnitude); return; }
+                if(size == 2) { const auto e = static_cast<std::uint16_t>(magnitude); std::memcpy(destination, &e, sizeof(e)); return; }
+                std::memcpy(destination, &magnitude, sizeof(magnitude));
+                return;
+            }
+            case FormatChannelKind::SINT:
+            {
+                const auto magnitude = static_cast<std::int32_t>(std::llround(value));
+                if(size == 1) { const auto e = static_cast<std::int8_t>(magnitude); std::memcpy(destination, &e, sizeof(e)); return; }
+                if(size == 2) { const auto e = static_cast<std::int16_t>(magnitude); std::memcpy(destination, &e, sizeof(e)); return; }
+                std::memcpy(destination, &magnitude, sizeof(magnitude));
+                return;
+            }
+            case FormatChannelKind::SFLOAT:
+            {
+                if(size == 2) { const std::uint16_t half = glm::packHalf1x16(value); std::memcpy(destination, &half, sizeof(half)); return; }
+                std::memcpy(destination, &value, sizeof(value));
+                return;
+            }
+            default:
+                return;
+        }
+    }
+
+    /// True when the CPU data type is stored exactly as the image stores a channel.
+    bool sourceMatchesImage(SGGDataType type, const SGCore::VulkanTypesCaster::FormatLayout& layout) noexcept
+    {
+        switch(type)
+        {
+            case SGGDataType::SGG_FLOAT: return layout.m_kind == FormatChannelKind::SFLOAT && layout.m_channelSize == 4;
+            case SGGDataType::SGG_UNSIGNED_BYTE: return layout.m_kind == FormatChannelKind::UNORM && layout.m_channelSize == 1;
+            case SGGDataType::SGG_BYTE: return layout.m_kind == FormatChannelKind::SNORM && layout.m_channelSize == 1;
+            case SGGDataType::SGG_UNSIGNED_SHORT: return layout.m_kind == FormatChannelKind::UINT && layout.m_channelSize == 2;
+            case SGGDataType::SGG_SHORT: return layout.m_kind == FormatChannelKind::SINT && layout.m_channelSize == 2;
+            case SGGDataType::SGG_UNSIGNED_INT: return layout.m_kind == FormatChannelKind::UINT && layout.m_channelSize == 4;
+            case SGGDataType::SGG_INT: return layout.m_kind == FormatChannelKind::SINT && layout.m_channelSize == 4;
+            default: return false;
+        }
     }
 }
 
@@ -140,14 +226,18 @@ void SGCore::VkTexture2D::uploadRegion(const std::uint8_t* data, std::uint32_t w
     const std::uint64_t dstPixel = static_cast<std::uint64_t>(dstChannels) * channelSize;
     const std::uint64_t pixelCount = static_cast<std::uint64_t>(width) * height;
 
-    // the copy is sized by the image format, so the staging layout must match it exactly; the
-    // engine's (channels, dataType) pair does not always agree with the declared internal format
+    // The copy is sized by the image format, and glTexImage2D converts the CPU buffer into the internal
+    // format on the way in while vkCmdCopyBufferToImage copies bytes as they are. The engine's
+    // (channels, dataType) pair does not always agree with the declared internal format — the SSAO
+    // noise hands 32-bit floats to an RGB16F image — so the staging buffer is built in the image's
+    // layout, converting channel by channel. This is the upload counterpart of the decoding
+    // VkFrameBuffer::readAttachmentPixels does.
+    const auto imageLayout = VulkanTypesCaster::formatLayout(m_vulkanTexture->getFormat());
     const std::uint32_t texelSize = VulkanTypesCaster::formatTexelSize(m_vulkanTexture->getFormat());
-    if(texelSize == 0 || dstPixel != texelSize)
+    if(texelSize == 0 || imageLayout.m_kind == FormatChannelKind::UNKNOWN || imageLayout.m_channelSize == 0)
     {
-        SG_LOG_E("VkTexture2D: can not upload '{}': CPU layout is {} byte(s) per pixel ({} channels of {} byte(s)) "
-                 "but the image format needs {}. The texture stays empty.",
-                 m_vulkanTexture->getDebugName(), dstPixel, dstChannels, channelSize, texelSize);
+        SG_LOG_E("VkTexture2D: can not upload '{}': image format {} has no plain channel layout.",
+                 m_vulkanTexture->getDebugName(), static_cast<int>(m_vulkanTexture->getFormat()));
 
         // an image left in UNDEFINED is still bound and sampled by the passes, which is a validation
         // error on top of the refused upload: give it defined contents and the layout shaders expect
@@ -166,26 +256,44 @@ void SGCore::VkTexture2D::uploadRegion(const std::uint8_t* data, std::uint32_t w
         return;
     }
 
-    auto staging = device->createStagingBuffer(pixelCount * dstPixel, "texture_upload");
+    auto staging = device->createStagingBuffer(pixelCount * texelSize, "texture_upload");
     if(!staging) return;
 
     auto* dst = static_cast<std::uint8_t*>(staging->getMappedPointer());
-    if(!expand)
+
+    if(dstPixel == texelSize && sourceMatchesImage(m_dataType, imageLayout) && !imageLayout.m_reversedChannels)
     {
-        std::memcpy(dst, data, pixelCount * srcPixel);
+        // identical layouts: the fast path the 8-bit textures of the engine take
+        if(!expand)
+        {
+            std::memcpy(dst, data, pixelCount * srcPixel);
+        }
+        else
+        {
+            // RGB -> RGBA with an opaque alpha of the channel's maximum value
+            for(std::uint64_t i = 0; i < pixelCount; ++i)
+            {
+                std::memcpy(dst + i * dstPixel, data + i * srcPixel, srcPixel);
+                std::memset(dst + i * dstPixel + srcPixel, 0xFF, channelSize);
+            }
+        }
     }
     else
     {
-        // RGB -> RGBA with an opaque alpha of the channel's maximum value
+        const auto channelsToConvert = std::min<std::uint32_t>(srcChannels, imageLayout.m_channels);
         for(std::uint64_t i = 0; i < pixelCount; ++i)
         {
-            std::memcpy(dst + i * dstPixel, data + i * srcPixel, srcPixel);
-            std::memset(dst + i * dstPixel + srcPixel, 0xFF, channelSize);
-        }
-        if(m_dataType == SGGDataType::SGG_FLOAT)
-        {
-            const float one = 1.0f;
-            for(std::uint64_t i = 0; i < pixelCount; ++i) std::memcpy(dst + i * dstPixel + srcPixel, &one, sizeof(one));
+            for(std::uint32_t channel = 0; channel < imageLayout.m_channels; ++channel)
+            {
+                const std::uint32_t target = imageLayout.m_reversedChannels && channel < 3 ? 2 - channel : channel;
+                std::uint8_t* out = dst + i * texelSize + static_cast<std::uint64_t>(target) * imageLayout.m_channelSize;
+
+                // channels the source does not carry (the alpha of a widened RGB image) read as opaque
+                const float value = channel < channelsToConvert
+                                        ? decodeSourceChannel(data + i * srcPixel + static_cast<std::uint64_t>(channel) * channelSize, m_dataType)
+                                        : 1.0f;
+                encodeImageChannel(out, imageLayout.m_kind, imageLayout.m_channelSize, value);
+            }
         }
     }
 

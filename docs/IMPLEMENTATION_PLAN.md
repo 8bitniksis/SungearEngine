@@ -188,8 +188,8 @@ Vulkan и DX12, не ломая существующие GL-бэкенды; ед
 
 | Задача | Роль | Объём | Статус |
 |--------|------|-------|--------|
-| 3.1 Инфраструктура: Agility SDK/заголовки, DXC для шейдеров, ветка `SG_TARGET_OS_WINDOWS` в CMake | @Build Engineer | M | ⬜ |
-| 3.2 Инициализация: device, command queues, свопчейн (HWND из GLFW через `glfwGetWin32Window`) | @Senior Graphics Engineer | L | ⬜ |
+| 3.1 Инфраструктура: ветка `SG_TARGET_OS_WINDOWS` в `Sources/SGCore/CMakeLists.txt` — `d3d12`/`dxgi`/`dxguid` берутся из Windows SDK, отдельного пакета не требуют, поэтому Agility SDK пока не нужен. `DX12Common` (`SG_DX_CHECK` + расшифровка `HRESULT` через системную таблицу сообщений) — двойник `VulkanCommon`. Зависимости vcpkg понадобятся только шейдерному пути (3.4): `spirv-cross` и `directx-dxc` | @Build Engineer | M | ✅ 2026-08-18 |
+| 3.2 Инициализация: `DX12Context` — DXGI-фабрика, выбор адаптера (`EnumAdapterByGpuPreference` с предпочтением дискретной GPU, программный WARP отбрасывается, требуется FL 12.0), device, direct-очередь, слой отладки (`SG_DX_VALIDATION=1/0`, двойник `SG_VK_VALIDATION`) и слив его очереди сообщений в лог (`drainDebugMessages` — у слоя нет колбэка, как у `VK_EXT_debug_utils`). `DX12Renderer` подключён к `GAPISelector`. **Проверено**: `SGRHITest --gapi dx12` — устройство поднимается (`NVIDIA GeForce GTX 1660 Ti`, FL 12.0, слой отладки on), выход 0. Свопчейн — следующий шаг. DX12 **убран из дефолтного списка предпочтения** (был там первым!): `createRenderer` теперь отдаёт рабочий объект, и незавершённый бэкенд стал бы дефолтом на Windows, отдавая пустой кадр; доступ через `SG_GAPI=dx12`, как у Vulkan | @Senior Graphics Engineer | L | 🟡 device/очередь есть, свопчейн — нет |
 | 3.3 Ресурсы и PSO поверх RHI (маппинг концепций 1:1 с Vulkan-бэкендом) | @Senior Graphics Engineer | L | ⬜ |
 | 3.4 Шейдеры: SPIR-V → DXIL (spirv-cross → HLSL → DXC, либо прямой путь по решению из 1.4) | @Senior Graphics Engineer | M | ⬜ |
 | 3.5 Смоук-сцена на DX12 = эталону | @Senior Graphics Engineer | M | ⬜ |

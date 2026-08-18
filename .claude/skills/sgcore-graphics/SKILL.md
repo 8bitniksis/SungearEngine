@@ -539,6 +539,35 @@ sampler+layout-трекер), `RHI/VulkanGPUBuffer`, `RHI/VulkanShaderProgram`, 
 - Тест запускать из корня репозитория: `${enginePath}` = `./Resources`, иначе экранный шейдер
   не грузится и screen blit проваливается.
 
+## DX12-бэкенд (этап 3, начат 2026-08-18)
+
+Файлы: `Graphics/API/DX12/DX12Common.{h,cpp}` (`SG_DX_CHECK`, расшифровка `HRESULT`),
+`DX12/RHI/DX12Context.{h,cpp}` (фабрика, адаптер, device, direct-очередь, слой отладки),
+`DX12/DX12Renderer.{h,cpp}`. Весь код под `#if defined(_WIN32)`.
+
+- **Зависимостей vcpkg не нужно для device/свопчейна**: `d3d12`, `dxgi`, `dxguid` идут из Windows SDK,
+  подключены веткой `if(SG_TARGET_OS_WINDOWS)` в `Sources/SGCore/CMakeLists.txt`. Пакеты понадобятся
+  только шейдерному пути (задача 3.4): `spirv-cross` (SPIR-V → HLSL) и `directx-dxc` (HLSL → DXIL).
+- **Слой отладки включается ДО создания device** (`D3D12GetDebugInterface` + `EnableDebugLayer`),
+  иначе device создастся без него. Требует установленного компонента Windows «Graphics Tools» —
+  если его нет, это не фатально, но валидации не будет (в лог идёт предупреждение).
+  Переключатель `SG_DX_VALIDATION=1/0`, двойник `SG_VK_VALIDATION`.
+- **У слоя отладки нет колбэка**, в отличие от `VK_EXT_debug_utils`: сообщения копятся в
+  `ID3D12InfoQueue` и их надо сливать самому — `DX12Context::drainDebugMessages()`, вызывается из
+  `checkForErrors()`.
+- **Выбор адаптера**: `EnumAdapterByGpuPreference(HIGH_PERFORMANCE)` — на гибридных машинах это даёт
+  дискретную GPU; адаптеры с флагом `SOFTWARE` (WARP) отбрасываются, чтобы программный растеризатор
+  не съедал кадр незаметно; требуется FL 12.0 (решение зафиксировано в RHI_DESIGN).
+- ⚠️ **DX12 стоял ПЕРВЫМ в дефолтном списке `GAPISelector` на Windows** и «пропускался», только пока
+  `createRenderer` отдавал `nullptr`. Как только бэкенд начинает создаваться, он становится дефолтом
+  и отдаёт пустой кадр. Убран из списка до готовности — доступ через `SG_GAPI=dx12`, как у Vulkan.
+- **`confirmSupport()` каждый бэкенд вызывает сам из `init()`** (так делают `GL4Renderer` и
+  `VkRenderer`); `CoreMain` его не зовёт.
+- **`CoreMain::init()` не останавливался при провале рендерера** — `setShouldClose(true)` влияет
+  только на главный цикл, а инициализация шла дальше создавать ассеты и падала с `abort()` на первом
+  `nullptr` из фабрики. Исправлено 2026-08-18: после `m_renderer->init()` проверяется
+  `m_window.shouldClose()`. Это лечит и латентный тот же путь у GL4.
+
 ## Смоук-тест
 
 - `Tests/Smoke` → `SGSmokeTest` (`--gapi`, `--frames`, `--output`, `--reference`,

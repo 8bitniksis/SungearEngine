@@ -126,6 +126,12 @@
    target_link_libraries(${PROJECT_NAME} PUBLIC glfw Vulkan::Loader)
  endif()
 
+ # DX12 (stage 3). d3d12/dxgi come with the Windows SDK, so the device and swapchain need no
+ # package of their own; the shader path (SPIR-V -> HLSL -> DXIL) will add vcpkg dependencies.
+ if(SG_TARGET_OS_WINDOWS)
+   target_link_libraries(${PROJECT_NAME} PUBLIC d3d12 dxgi dxguid)
+ endif()
+
  if(SG_TARGET_OS_ANDROID)
   message(STATUS "Android Lib: ${SG_ANDROID_LIB}")
   message(STATUS "EGL Lib: ${SG_EGL_LIB}")

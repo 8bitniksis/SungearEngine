@@ -119,6 +119,16 @@ void SGCore::CoreMain::init()
 
     m_renderer->init();
 
+    // A backend that could not initialize asks for the window to close (GL4Renderer and VkRenderer
+    // both do this when confirmSupport() fails). Initialization has to stop here too: everything
+    // below creates GPU resources through the renderer, and a backend that just failed hands out
+    // nullptr, so the run would abort on the first dereference instead of reporting the real reason.
+    if(m_window.shouldClose())
+    {
+        SG_LOG_C("Renderer initialization failed, stopping engine initialization.");
+        return;
+    }
+
     SG_LOG_I("Adding standard assets...");
 
     AssetManager::getInstance()->addStandardAssets();

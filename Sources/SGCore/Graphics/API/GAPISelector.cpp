@@ -14,6 +14,10 @@
 #include "SGCore/Graphics/API/GL/GL46/GL46Renderer.h"
 #include "SGCore/Graphics/API/Vulkan/VkRenderer.h"
 
+#if defined(_WIN32)
+#include "SGCore/Graphics/API/DX12/DX12Renderer.h"
+#endif
+
 std::vector<SGCore::GAPIType> SGCore::GAPISelector::s_preference = SGCore::GAPISelector::getDefaultPreference();
 
 std::vector<SGCore::GAPIType> SGCore::GAPISelector::getDefaultPreference() noexcept
@@ -26,8 +30,11 @@ std::vector<SGCore::GAPIType> SGCore::GAPISelector::getDefaultPreference() noexc
     // Vulkan is buildable but its legacy facades are incomplete (stage 2 in progress): it stays out
     // of the default order and is reached through SG_GAPI=vulkan or setPreference() until the smoke
     // test passes on it. Then it moves in front of GL46 here.
+    // DX12 (stage 3) is at an earlier point still — the device comes up but nothing renders — so it
+    // is likewise reachable only through SG_GAPI=dx12. Listing it here would make an unfinished
+    // backend the default on Windows and give every app an empty frame.
 #if SG_PLATFORM_OS_WINDOWS
-    return { SG_API_TYPE_DX12, SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
+    return { SG_API_TYPE_GL46, SG_API_TYPE_GL4 };
 #elif SG_PLATFORM_OS_ANDROID
     return { SG_API_TYPE_GL4 };
 #else
@@ -75,10 +82,15 @@ SGCore::Ref<SGCore::IRenderer> SGCore::GAPISelector::createRenderer(GAPIType api
         // (see GL4Renderer::getInstance()); GLES2/GLES3 get their own entries when that is untangled.
         case SG_API_TYPE_VULKAN:
             return VkRenderer::getInstance();
+        case SG_API_TYPE_DX12:
+#if defined(_WIN32)
+            return DX12Renderer::getInstance();
+#else
+            return nullptr;
+#endif
         case SG_API_TYPE_UNKNOWN:
         case SG_API_TYPE_GLES2:
         case SG_API_TYPE_GLES3:
-        case SG_API_TYPE_DX12:
             return nullptr;
     }
 

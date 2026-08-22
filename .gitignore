@@ -73,6 +73,10 @@ installed
 # кадры смоук-теста и отчёт краш-хендлера — создаются при каждом запуске
 logs/
 SGSLETranslatorOutputDebug/
+# дамп вулканизатора и SPIR-V: SGShadersTest --spirv пишет его в текущий каталог
+vulkanized/
+# дамп HLSL с SG_DX_DUMP_HLSL=1
+DX12HLSLOutputDebug/
 smoke_*.png
 # ...кроме коммитнутых эталонов: они не мусор запуска, а входные данные теста
 !Tests/Smoke/references/smoke_*.png

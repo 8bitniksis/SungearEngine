@@ -59,8 +59,22 @@ void main()
 
 #fragment
 
-layout(location = 0) out vec4 outColor; // ALSO USED TO WRITE IN COLOR ATTACHMENT 7 (FINAL SCENE COLOR)
+// Two variants of one program, chosen by SG_OUTLINE_COMBINE (see OutlinePass::create).
+// Passes 1 and 2 draw into attachments 0 and 1, pass 3 into attachment 7 alone. A single program
+// declaring both outputs is legal, but its pipeline for pass 3 then declares a write to a location
+// with no attachment behind it, and validation warns on every draw — nine times per frame here.
+// The branch on vs_pass is invisible to that analysis, so the outputs have to differ per variant.
+// In the combine variant location 0 IS colour attachment 7.
+// Two rules the SGSL translator imposes here, both learned the hard way:
+//  - no #ifndef: it comes out of the translator as a bare "#" and the guarded block disappears;
+//  - no trailing // comment on the line before a directive: comments are stripped and the lines are
+//    joined, so the directive ends up glued to the end of the previous statement.
+#ifdef SG_OUTLINE_COMBINE
+layout(location = 0) out vec4 outColor;
+#else
+layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outScaledColor;
+#endif
 
 uniform float u_outlineThickness;
 uniform vec4 u_outlineColor;
@@ -78,6 +92,18 @@ in vec3 vs_fragPos;
 // final image into noise. "Leave the attachment alone" is spelled discard (no blending, no depth).
 void main()
 {
+#ifdef SG_OUTLINE_COMBINE
+    // pass 3: combine the scaled outline with the scene colour already in attachment 7
+    vec3 outlineCol = texture(u_scaledOutlineBuffer, vs_quadUV).rgb;
+
+    // no outline here: attachment 7 keeps the scene colour
+    if(outlineCol == vec3(0.0))
+    {
+        discard;
+    }
+
+    outColor = vec4(outlineCol, 1.0);
+#else
     if(vs_pass == 1) // firstly drawing object with outline color
     {
         outColor = u_outlineColor;
@@ -127,24 +153,11 @@ void main()
             outScaledColor = vec4(0.0);
         }
     }
-    else if(vs_pass == 3) // finally combining attachment 7 and scaled outline color. outlineCol here is used as output to color attachment 7
-    {
-        vec3 outlineCol = texture(u_scaledOutlineBuffer, vs_quadUV).rgb;
-
-        // no outline here: attachment 7 keeps the scene colour
-        if(outlineCol == vec3(0.0))
-        {
-            discard;
-        }
-
-        // only attachment 7 is bound here, so location 0 is the whole output set: assigning
-        // outScaledColor would be a write with no attachment behind it
-        outColor = vec4(outlineCol, 1.0);
-    }
     else
     {
         discard;
     }
+#endif
 }
 
 #end

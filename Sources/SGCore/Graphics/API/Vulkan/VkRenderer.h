@@ -9,11 +9,11 @@
 
 #include "SGCore/Graphics/API/IRenderer.h"
 #include "VkShader.h"
-#include "VkVertexArray.h"
-#include "VkVertexBuffer.h"
-#include "VkIndexBuffer.h"
+#include "SGCore/Graphics/RHI/RHIVertexArray.h"
+#include "SGCore/Graphics/RHI/RHIVertexBuffer.h"
+#include "SGCore/Graphics/RHI/RHIIndexBuffer.h"
 #include "VkTexture2D.h"
-#include "VkUniformBuffer.h"
+#include "SGCore/Graphics/RHI/RHIUniformBuffer.h"
 #include "VkFrameBuffer.h"
 #include "VkCubemapTexture.h"
 #include "RHI/VulkanContext.h"
@@ -68,12 +68,12 @@ namespace SGCore
         void checkForErrors(const std::source_location& location = std::source_location::current()) noexcept override;
 
         [[nodiscard]] VkShader* createShader() override;
-        [[nodiscard]] VkVertexArray* createVertexArray() override;
-        [[nodiscard]] VkVertexBuffer* createVertexBuffer() override;
-        [[nodiscard]] VkIndexBuffer* createIndexBuffer() override;
+        [[nodiscard]] IVertexArray* createVertexArray() override;
+        [[nodiscard]] IVertexBuffer* createVertexBuffer() override;
+        [[nodiscard]] IIndexBuffer* createIndexBuffer() override;
         [[nodiscard]] VkTexture2D* createTexture2D() override;
         [[nodiscard]] VkCubemapTexture* createCubemapTexture() override;
-        [[nodiscard]] VkUniformBuffer* createUniformBuffer() override;
+        [[nodiscard]] IUniformBuffer* createUniformBuffer() override;
         [[nodiscard]] VkFrameBuffer* createFrameBuffer() override;
 
         [[nodiscard]] IMeshData* createMeshData() const override;
@@ -139,7 +139,6 @@ namespace SGCore
         MeshRenderState m_cachedMeshRenderState { };
 
         /// Uploads the mesh into RHI buffers and builds its VertexInputDesc once (IMeshData::m_rhi).
-        bool prepareMeshRHI(IMeshData& meshData) noexcept;
 
         /// Draws a legacy IVertexArray (batching, decals, text, UI, debug lines) through the RHI.
         void drawLegacyArray(const Ref<IVertexArray>& vertexArray, const MeshRenderState& meshRenderState,

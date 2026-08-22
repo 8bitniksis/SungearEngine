@@ -2,26 +2,27 @@
 // Created by stuka on 07.07.2023.
 //
 
-#include "VkVertexBuffer.h"
+#include "RHIVertexBuffer.h"
 
-#include "RHI/VulkanDevice.h"
-#include "RHI/VulkanGPUBuffer.h"
-#include "VkRenderer.h"
+
+
+#include "IDevice.h"
+#include "LiveDevice.h"
 
 namespace
 {
-    SGCore::VulkanDevice* currentDevice() noexcept
+    SGCore::IDevice* currentDevice() noexcept
     {
-        return SGCore::VkRenderer::getLiveDevice();
+        return SGCore::LiveDevice::get();
     }
 }
 
-SGCore::VkVertexBuffer::~VkVertexBuffer() noexcept
+SGCore::RHIVertexBuffer::~RHIVertexBuffer() noexcept
 {
-    VkVertexBuffer::destroy();
+    RHIVertexBuffer::destroy();
 }
 
-void SGCore::VkVertexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
+void SGCore::RHIVertexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
 {
     if(byteSize == 0) return;
     if(m_gpuBuffer && m_capacity >= byteSize) return;
@@ -43,19 +44,19 @@ void SGCore::VkVertexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
     m_capacity = m_gpuBuffer ? byteSize : 0;
 }
 
-void SGCore::VkVertexBuffer::create() noexcept
+void SGCore::RHIVertexBuffer::create() noexcept
 {
     ensureCapacity(m_data.size());
     if(m_gpuBuffer && !m_data.empty()) m_gpuBuffer->write(m_data.data(), m_data.size(), 0);
 }
 
-void SGCore::VkVertexBuffer::create(const size_t& byteSize) noexcept
+void SGCore::RHIVertexBuffer::create(const size_t& byteSize) noexcept
 {
     m_data.resize(byteSize);
     ensureCapacity(byteSize);
 }
 
-void SGCore::VkVertexBuffer::destroy() noexcept
+void SGCore::RHIVertexBuffer::destroy() noexcept
 {
     if(!m_gpuBuffer) return;
     if(auto* device = currentDevice()) device->destroyDeferred(m_gpuBuffer);
@@ -63,7 +64,7 @@ void SGCore::VkVertexBuffer::destroy() noexcept
     m_capacity = 0;
 }
 
-void SGCore::VkVertexBuffer::subDataOnGAPISide(const void* data, const size_t& bytesCount, const size_t& bytesOffset, bool isPutData) noexcept
+void SGCore::RHIVertexBuffer::subDataOnGAPISide(const void* data, const size_t& bytesCount, const size_t& bytesOffset, bool isPutData) noexcept
 {
     if(!data || bytesCount == 0) return;
 
@@ -77,28 +78,28 @@ void SGCore::VkVertexBuffer::subDataOnGAPISide(const void* data, const size_t& b
     m_gpuBuffer->write(data, bytesCount, bytesOffset);
 }
 
-void SGCore::VkVertexBuffer::bind() noexcept
+void SGCore::RHIVertexBuffer::bind() noexcept
 {
     // vertex buffers are bound per draw through ICommandList::bindVertexBuffer
 }
 
-void SGCore::VkVertexBuffer::setUsage(SGGUsage usage) noexcept
+void SGCore::RHIVertexBuffer::setUsage(SGGUsage usage) noexcept
 {
     m_usage = usage;
 }
 
-void SGCore::VkVertexBuffer::addAttributeImpl(std::uint32_t, std::int32_t, SGGDataType, bool, std::int32_t, std::uint64_t, std::int32_t) noexcept
+void SGCore::RHIVertexBuffer::addAttributeImpl(std::uint32_t, std::int32_t, SGGDataType, bool, std::int32_t, std::uint64_t, std::int32_t) noexcept
 {
     // the base class already recorded the AttributeDesc; the vertex layout lives in the pipeline
 }
 
-void SGCore::VkVertexBuffer::useAttributes() const noexcept
+void SGCore::RHIVertexBuffer::useAttributes() const noexcept
 {
     // no vertex array object on Vulkan: see addAttributeImpl
 }
 
-std::uintptr_t SGCore::VkVertexBuffer::getNativeHandle() const noexcept
+std::uintptr_t SGCore::RHIVertexBuffer::getNativeHandle() const noexcept
 {
-    const auto* buffer = static_cast<const VulkanGPUBuffer*>(m_gpuBuffer.get());
-    return buffer ? reinterpret_cast<std::uintptr_t>(buffer->getHandle()) : 0;
+    // a stable key for whoever caches by buffer identity; the API handle itself lives in the backend
+    return reinterpret_cast<std::uintptr_t>(m_gpuBuffer.get());
 }

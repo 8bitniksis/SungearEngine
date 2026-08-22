@@ -2,27 +2,28 @@
 // Created by stuka on 07.07.2023.
 //
 
-#include "VkUniformBuffer.h"
+#include "RHIUniformBuffer.h"
 
-#include "RHI/VulkanDevice.h"
-#include "RHI/VulkanSharedUniformBuffers.h"
+#include "IDevice.h"
+#include "LiveDevice.h"
+#include "SharedUniformBuffers.h"
 #include "SGCore/Logger/Logger.h"
-#include "VkRenderer.h"
+
 
 namespace
 {
-    SGCore::VulkanDevice* currentDevice() noexcept
+    SGCore::IDevice* currentDevice() noexcept
     {
-        return SGCore::VkRenderer::getLiveDevice();
+        return SGCore::LiveDevice::get();
     }
 }
 
-SGCore::VkUniformBuffer::~VkUniformBuffer()
+SGCore::RHIUniformBuffer::~RHIUniformBuffer()
 {
-    VkUniformBuffer::destroy();
+    RHIUniformBuffer::destroy();
 }
 
-void SGCore::VkUniformBuffer::prepare() noexcept
+void SGCore::RHIUniformBuffer::prepare() noexcept
 {
     destroy();
 
@@ -42,35 +43,35 @@ void SGCore::VkUniformBuffer::prepare() noexcept
 
     if(m_blockName.empty())
     {
-        SG_LOG_W("VkUniformBuffer without a block name: shaders can not find it (bindings are assigned by name on Vulkan).");
+        SG_LOG_W("RHIUniformBuffer without a block name: shaders can not find it (bindings are assigned by block name here).");
         return;
     }
-    VulkanSharedUniformBuffers::set(m_blockName, m_buffer_gpu);
+    SharedUniformBuffers::set(m_blockName, m_buffer_gpu);
 }
 
-void SGCore::VkUniformBuffer::subDataOnGAPISide(const std::int64_t& offset, const int& size) noexcept
+void SGCore::RHIUniformBuffer::subDataOnGAPISide(const std::int64_t& offset, const int& size) noexcept
 {
     if(!m_buffer_gpu || !m_buffer || size <= 0) return;
     m_buffer_gpu->write(m_buffer + offset, static_cast<std::uint64_t>(size), static_cast<std::uint64_t>(offset));
 }
 
-void SGCore::VkUniformBuffer::bind() noexcept
+void SGCore::RHIUniformBuffer::bind() noexcept
 {
     // nothing to bind: shaders pick the buffer up by block name when they build their descriptor set
 }
 
-void SGCore::VkUniformBuffer::setLayoutLocation(const std::uint16_t& location) noexcept
+void SGCore::RHIUniformBuffer::setLayoutLocation(const std::uint16_t& location) noexcept
 {
     m_layoutLocation = location;
 }
 
-void SGCore::VkUniformBuffer::destroy() noexcept
+void SGCore::RHIUniformBuffer::destroy() noexcept
 {
     if(!m_buffer_gpu) return;
 
-    if(!m_blockName.empty() && VulkanSharedUniformBuffers::get(m_blockName) == m_buffer_gpu)
+    if(!m_blockName.empty() && SharedUniformBuffers::get(m_blockName) == m_buffer_gpu)
     {
-        VulkanSharedUniformBuffers::remove(m_blockName);
+        SharedUniformBuffers::remove(m_blockName);
     }
     if(auto* device = currentDevice()) device->destroyDeferred(m_buffer_gpu);
     m_buffer_gpu = nullptr;

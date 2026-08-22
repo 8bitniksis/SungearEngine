@@ -2,21 +2,22 @@
 // Created by stuka on 07.07.2023.
 //
 
-#ifndef SUNGEARENGINE_VKVERTEXBUFFER_H
-#define SUNGEARENGINE_VKVERTEXBUFFER_H
+#ifndef SUNGEARENGINE_RHIVERTEXBUFFER_H
+#define SUNGEARENGINE_RHIVERTEXBUFFER_H
 
 #include "SGCore/Graphics/API/IVertexBuffer.h"
-#include "SGCore/Graphics/RHI/IGPUBuffer.h"
+#include "IGPUBuffer.h"
 
 namespace SGCore
 {
-    /// Legacy IVertexBuffer over an RHI buffer. Attributes are only recorded by the base class
-    /// (getAttributes()); on Vulkan the vertex layout belongs to the pipeline, so useAttributes()
-    /// and bind() have nothing to do — VkRenderer builds VertexInputDesc from those records.
-    class VkVertexBuffer : public IVertexBuffer
+    /// Legacy IVertexBuffer over an RHI buffer, shared by every explicit backend. Attributes are only
+    /// recorded by the base class
+    /// (getAttributes()); the vertex layout belongs to the pipeline there, so useAttributes()
+    /// and bind() have nothing to do — the renderer builds VertexInputDesc from those records.
+    class RHIVertexBuffer : public IVertexBuffer
     {
     public:
-        ~VkVertexBuffer() noexcept override;
+        ~RHIVertexBuffer() noexcept override;
 
         void create() noexcept final;
         void create(const size_t& byteSize) noexcept final;
@@ -50,4 +51,4 @@ namespace SGCore
     };
 }
 
-#endif //SUNGEARENGINE_VKVERTEXBUFFER_H
+#endif //SUNGEARENGINE_RHIVERTEXBUFFER_H

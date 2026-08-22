@@ -2,26 +2,27 @@
 // Created by stuka on 07.07.2023.
 //
 
-#include "VkIndexBuffer.h"
+#include "RHIIndexBuffer.h"
 
-#include "RHI/VulkanDevice.h"
-#include "RHI/VulkanGPUBuffer.h"
-#include "VkRenderer.h"
+
+
+#include "IDevice.h"
+#include "LiveDevice.h"
 
 namespace
 {
-    SGCore::VulkanDevice* currentDevice() noexcept
+    SGCore::IDevice* currentDevice() noexcept
     {
-        return SGCore::VkRenderer::getLiveDevice();
+        return SGCore::LiveDevice::get();
     }
 }
 
-SGCore::VkIndexBuffer::~VkIndexBuffer() noexcept
+SGCore::RHIIndexBuffer::~RHIIndexBuffer() noexcept
 {
-    VkIndexBuffer::destroy();
+    RHIIndexBuffer::destroy();
 }
 
-void SGCore::VkIndexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
+void SGCore::RHIIndexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
 {
     if(byteSize == 0) return;
     if(m_gpuBuffer && m_capacity >= byteSize) return;
@@ -41,7 +42,7 @@ void SGCore::VkIndexBuffer::ensureCapacity(std::uint64_t byteSize) noexcept
     m_capacity = m_gpuBuffer ? byteSize : 0;
 }
 
-void SGCore::VkIndexBuffer::create() noexcept
+void SGCore::RHIIndexBuffer::create() noexcept
 {
     ensureCapacity(m_data.size() * sizeof(std::uint32_t));
     if(m_gpuBuffer && !m_data.empty())
@@ -50,13 +51,13 @@ void SGCore::VkIndexBuffer::create() noexcept
     }
 }
 
-void SGCore::VkIndexBuffer::create(const size_t& byteSize) noexcept
+void SGCore::RHIIndexBuffer::create(const size_t& byteSize) noexcept
 {
     m_data.resize(byteSize / sizeof(std::uint32_t));
     ensureCapacity(byteSize);
 }
 
-void SGCore::VkIndexBuffer::destroy() noexcept
+void SGCore::RHIIndexBuffer::destroy() noexcept
 {
     if(!m_gpuBuffer) return;
     if(auto* device = currentDevice()) device->destroyDeferred(m_gpuBuffer);
@@ -64,7 +65,7 @@ void SGCore::VkIndexBuffer::destroy() noexcept
     m_capacity = 0;
 }
 
-void SGCore::VkIndexBuffer::putData(const std::vector<std::uint32_t>& data) noexcept
+void SGCore::RHIIndexBuffer::putData(const std::vector<std::uint32_t>& data) noexcept
 {
     m_data = data;
     ensureCapacity(m_data.size() * sizeof(std::uint32_t));
@@ -74,12 +75,12 @@ void SGCore::VkIndexBuffer::putData(const std::vector<std::uint32_t>& data) noex
     }
 }
 
-void SGCore::VkIndexBuffer::subData(const std::vector<std::uint32_t>& data, const int& offset) noexcept
+void SGCore::RHIIndexBuffer::subData(const std::vector<std::uint32_t>& data, const int& offset) noexcept
 {
     subData(const_cast<std::uint32_t*>(data.data()), data.size(), offset);
 }
 
-void SGCore::VkIndexBuffer::subData(std::uint32_t* data, const size_t& elementsCount, const int& offset) noexcept
+void SGCore::RHIIndexBuffer::subData(std::uint32_t* data, const size_t& elementsCount, const int& offset) noexcept
 {
     if(!data || elementsCount == 0 || offset < 0) return;
 
@@ -91,18 +92,18 @@ void SGCore::VkIndexBuffer::subData(std::uint32_t* data, const size_t& elementsC
     m_gpuBuffer->write(data, elementsCount * sizeof(std::uint32_t), elementOffset * sizeof(std::uint32_t));
 }
 
-void SGCore::VkIndexBuffer::bind() noexcept
+void SGCore::RHIIndexBuffer::bind() noexcept
 {
     // index buffers are bound per draw through ICommandList::bindIndexBuffer
 }
 
-void SGCore::VkIndexBuffer::setUsage(SGGUsage usage) noexcept
+void SGCore::RHIIndexBuffer::setUsage(SGGUsage usage) noexcept
 {
     m_usage = usage;
 }
 
-std::uintptr_t SGCore::VkIndexBuffer::getNativeHandle() const noexcept
+std::uintptr_t SGCore::RHIIndexBuffer::getNativeHandle() const noexcept
 {
-    const auto* buffer = static_cast<const VulkanGPUBuffer*>(m_gpuBuffer.get());
-    return buffer ? reinterpret_cast<std::uintptr_t>(buffer->getHandle()) : 0;
+    // a stable key for whoever caches by buffer identity; the API handle itself lives in the backend
+    return reinterpret_cast<std::uintptr_t>(m_gpuBuffer.get());
 }

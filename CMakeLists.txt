@@ -130,6 +130,13 @@ find_package(Lua REQUIRED)
 find_package(recastnavigation CONFIG REQUIRED)
 find_package(glslang CONFIG REQUIRED)
 find_package(unofficial-spirv-reflect CONFIG REQUIRED)
+if(SG_TARGET_OS_WINDOWS)
+    # DX12 shader path (stage 3.4): SPIR-V -> HLSL. The HLSL is then compiled by d3dcompiler from the
+    # Windows SDK, so no DXC package is needed.
+    find_package(spirv_cross_core CONFIG REQUIRED)
+    find_package(spirv_cross_glsl CONFIG REQUIRED)
+    find_package(spirv_cross_hlsl CONFIG REQUIRED)
+endif()
 find_package(VulkanHeaders CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 if(NOT SG_TARGET_OS_ANDROID)

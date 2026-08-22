@@ -274,7 +274,6 @@ void SGCore::VulkanCommandList::beginRenderPass(const RenderPassBeginDesc& desc)
 
     vkCmdBeginRendering(m_commandBuffer, &renderingInfo);
     m_inPass = true;
-    if(colorInfos.size() == 8)
 
     // pipeline variants depend on the pass: rebind at the next draw
     m_boundPipeline = VK_NULL_HANDLE;

@@ -8,7 +8,7 @@
 
 #include "RHI/VulkanDevice.h"
 #include "RHI/VulkanGPUBuffer.h"
-#include "RHI/VulkanTextureUnits.h"
+#include "SGCore/Graphics/RHI/TextureUnits.h"
 #include "SGCore/Logger/Logger.h"
 #include "VkRenderer.h"
 #include "VulkanTypesCaster.h"
@@ -143,7 +143,7 @@ void SGCore::VkCubemapTexture::destroyOnGPU()
 void SGCore::VkCubemapTexture::bind(const std::uint8_t& textureUnit) const
 {
     // same unit model as VkTexture2D: VkShader joins unit and sampler at draw time
-    VulkanTextureUnits::set(textureUnit, m_vulkanTexture);
+    TextureUnits::set(textureUnit, m_vulkanTexture);
 }
 
 void* SGCore::VkCubemapTexture::getTextureNativeHandler() const noexcept

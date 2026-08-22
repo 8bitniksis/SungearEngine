@@ -2,19 +2,19 @@
 // Created by stuka on 07.07.2023.
 //
 
-#ifndef SUNGEARENGINE_VKINDEXBUFFER_H
-#define SUNGEARENGINE_VKINDEXBUFFER_H
+#ifndef SUNGEARENGINE_RHIINDEXBUFFER_H
+#define SUNGEARENGINE_RHIINDEXBUFFER_H
 
 #include "SGCore/Graphics/API/IIndexBuffer.h"
-#include "SGCore/Graphics/RHI/IGPUBuffer.h"
+#include "IGPUBuffer.h"
 
 namespace SGCore
 {
     /// Legacy IIndexBuffer over an RHI buffer. Indices are 32-bit, as everywhere in the engine.
-    class VkIndexBuffer : public IIndexBuffer
+    class RHIIndexBuffer : public IIndexBuffer
     {
     public:
-        ~VkIndexBuffer() noexcept override;
+        ~RHIIndexBuffer() noexcept override;
 
         void create() noexcept final;
         void create(const size_t& byteSize) noexcept final;
@@ -38,4 +38,4 @@ namespace SGCore
     };
 }
 
-#endif //SUNGEARENGINE_VKINDEXBUFFER_H
+#endif //SUNGEARENGINE_RHIINDEXBUFFER_H

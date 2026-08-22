@@ -146,9 +146,9 @@ std::uint32_t SGCore::VulkanTypesCaster::formatTexelSize(VkFormat format) noexce
     }
 }
 
-SGCore::VulkanTypesCaster::FormatLayout SGCore::VulkanTypesCaster::formatLayout(VkFormat format) noexcept
+SGCore::ChannelLayout SGCore::VulkanTypesCaster::formatLayout(VkFormat format) noexcept
 {
-    using Kind = FormatChannelKind;
+    using Kind = ChannelKind;
 
     switch(format)
     {

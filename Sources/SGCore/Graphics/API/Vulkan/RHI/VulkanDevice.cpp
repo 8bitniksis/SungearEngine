@@ -350,7 +350,7 @@ void SGCore::VulkanDevice::rotateUniformArena() noexcept
     region.m_usedInChunk = 0;
 }
 
-SGCore::VulkanUniformSlice SGCore::VulkanDevice::allocateTransientUniforms(std::uint64_t size) noexcept
+SGCore::UniformSlice SGCore::VulkanDevice::allocateTransientUniforms(std::uint64_t size) noexcept
 {
     if(size == 0) return { };
 
@@ -394,6 +394,11 @@ SGCore::VulkanUniformSlice SGCore::VulkanDevice::allocateTransientUniforms(std::
     region.m_currentChunk = region.m_chunks.size() - 1;
     region.m_usedInChunk = size;
     return { chunk.m_buffer, 0, chunk.m_mapped };
+}
+
+SGCore::Ref<SGCore::IGPUObject> SGCore::VulkanDevice::getDummyBackendTexture() noexcept
+{
+    return getDummyTexture();
 }
 
 const SGCore::Ref<SGCore::VulkanTexture>& SGCore::VulkanDevice::getDummyTexture() noexcept

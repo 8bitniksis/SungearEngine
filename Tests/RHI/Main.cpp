@@ -537,6 +537,7 @@ int main(int argc, char** argv)
     SGCore::CoreMain::getRenderTimer().onUpdate.connect<&onUpdate>();
 
     SGCore::CoreMain::init();
+
     SGCore::CoreMain::startCycle();
 
     return g_exitCode;

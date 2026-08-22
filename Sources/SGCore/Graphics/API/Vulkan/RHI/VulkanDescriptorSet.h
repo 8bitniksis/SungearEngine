@@ -48,6 +48,8 @@ namespace SGCore
         void setTexture(std::uint32_t binding, const Ref<ITexture2D>& texture, std::uint32_t arrayIndex = 0) noexcept override;
         void setCubemap(std::uint32_t binding, const Ref<ICubemapTexture>& texture) noexcept override;
 
+        void setBackendTexture(std::uint32_t binding, const Ref<IGPUObject>& texture, std::uint32_t arrayIndex = 0) noexcept override;
+
         /// Vulkan-only overload: binds a backend texture without going through a legacy facade.
         void setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex = 0) noexcept;
 

@@ -10,17 +10,30 @@
 
 #include "SGCore/Graphics/API/IRenderer.h"
 #include "RHI/DX12Context.h"
+#include "RHI/DX12Device.h"
+#include "SGCore/Graphics/RHI/RHIIndexBuffer.h"
+#include "SGCore/Graphics/RHI/RHIUniformBuffer.h"
+#include "SGCore/Graphics/RHI/RHIVertexArray.h"
+#include "SGCore/Graphics/RHI/RHIVertexBuffer.h"
+#include "DX12CubemapTexture.h"
+#include "DX12FrameBuffer.h"
+#include "DX12Shader.h"
+#include "DX12Texture2D.h"
 
 namespace SGCore
 {
+    class ScreenBlit;
+
     /**
      * The DX12 renderer (stage 3 of docs/IMPLEMENTATION_PLAN.md).
      *
-     * Currently brings up the device: adapter selection, D3D12 device, direct queue and the debug
-     * layer. The RHI implementation (DX12Device/CommandList/PipelineState) and the legacy Vk*-style
-     * facades follow in tasks 3.3 and 3.4; until then the IRenderer factories return nullptr and the
-     * backend stays out of GAPISelector's default order, exactly as the Vulkan backend did while it
-     * was being built.
+     * Brings up the device (adapter, D3D12 device, direct queue, debug layer), the swapchain and the
+     * RHI on top of them: DX12Device / DX12CommandList / DX12PipelineState, mapped one to one onto
+     * the Vulkan backend. What is still missing is the shader path (SPIR-V -> HLSL -> DXIL, task 3.4)
+     * and the legacy IShader / ITexture2D / IFrameBuffer facades built on it (task 3.5), so the
+     * IRenderer factories return nullptr and a full engine run stops right after init(); RHI-level
+     * use (device, swapchain, command lists, buffers) already works. The backend stays out of
+     * GAPISelector's default order, exactly as the Vulkan backend did while it was being built.
      */
     class DX12Renderer : public IRenderer
     {
@@ -71,16 +84,43 @@ namespace SGCore
         void reload() noexcept override;
         void shutdown() noexcept override;
 
+        void renderTextureOnScreen(const ITexture2D* texture, bool flipOutput, int x, int y, int width, int height) noexcept override;
+        [[nodiscard]] bool readScreenPixels(AttachmentReadback& out) const noexcept override;
+
+        /// The command list legacy DX12FrameBuffer::bind()/unbind() record into (one per renderer).
+        [[nodiscard]] ICommandList* getFrameBufferCommandList() noexcept;
+        [[nodiscard]] const Ref<ICommandList>& getFrameBufferCommandListRef() noexcept;
+
+        [[nodiscard]] IDevice* getDevice() noexcept override;
+        [[nodiscard]] DX12Device* getDX12Device() const noexcept { return m_device.get(); }
         [[nodiscard]] DX12Context& getContext() noexcept { return *m_context; }
+
+        /// The live device, or nullptr once shutdown() ran (or before init()). Legacy facades must
+        /// use this instead of the singleton: assets outlive the renderer and are destroyed in static
+        /// destruction, when the singleton itself may already be gone — the lesson the Vulkan backend
+        /// paid for with an abort() at exit.
+        [[nodiscard]] static DX12Device* getLiveDevice() noexcept;
+
+        /// The shader the passes bound last: DX12 has no "current program", so draws take the program
+        /// (and its legacy uniform blocks / sampler table) from here, as GL46 and Vulkan do.
+        void setCurrentLegacyShader(DX12Shader* shader) noexcept { m_currentLegacyShader = shader; }
+        [[nodiscard]] DX12Shader* getCurrentLegacyShader() const noexcept { return m_currentLegacyShader; }
 
         static const std::shared_ptr<DX12Renderer>& getInstance() noexcept;
 
     private:
         std::shared_ptr<DX12Context> m_context = std::make_shared<DX12Context>();
+        std::unique_ptr<DX12Device> m_device;
+        Ref<ICommandList> m_frameBufferCommandList;
+        DX12Shader* m_currentLegacyShader { };
+        std::unique_ptr<ScreenBlit> m_screenBlit;
+        bool m_screenBlitInitTried { };
 
-        /// Logged once so a run on the unfinished backend says why nothing is drawn instead of
-        /// silently producing an empty frame.
-        void reportUnimplemented(const char* what) const noexcept;
+        RenderState m_cachedRenderState { };
+        MeshRenderState m_cachedMeshRenderState { };
+
+        static inline DX12Device* s_liveDevice = nullptr;
+
     };
 }
 

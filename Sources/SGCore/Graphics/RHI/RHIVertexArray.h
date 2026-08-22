@@ -2,17 +2,17 @@
 // Created by stuka on 07.07.2023.
 //
 
-#ifndef SUNGEARENGINE_VKVERTEXARRAY_H
-#define SUNGEARENGINE_VKVERTEXARRAY_H
+#ifndef SUNGEARENGINE_RHIVERTEXARRAY_H
+#define SUNGEARENGINE_RHIVERTEXARRAY_H
 
 #include "SGCore/Graphics/API/IVertexArray.h"
 
 namespace SGCore
 {
-    class VkVertexArray : public IVertexArray
+    class RHIVertexArray : public IVertexArray
     {
     public:
-        ~VkVertexArray() noexcept override;
+        ~RHIVertexArray() noexcept override;
 
         void create() noexcept final;
         void destroy() noexcept final;
@@ -21,4 +21,4 @@ namespace SGCore
     };
 }
 
-#endif //SUNGEARENGINE_VKVERTEXARRAY_H
+#endif //SUNGEARENGINE_RHIVERTEXARRAY_H

@@ -126,10 +126,14 @@
    target_link_libraries(${PROJECT_NAME} PUBLIC glfw Vulkan::Loader)
  endif()
 
- # DX12 (stage 3). d3d12/dxgi come with the Windows SDK, so the device and swapchain need no
- # package of their own; the shader path (SPIR-V -> HLSL -> DXIL) will add vcpkg dependencies.
+ # DX12 (stage 3). d3d12/dxgi come with the Windows SDK, so device, swapchain and the shader
+ # compiler need no package of their own; only the SPIR-V -> HLSL step is a dependency (spirv-cross).
  if(SG_TARGET_OS_WINDOWS)
-   target_link_libraries(${PROJECT_NAME} PUBLIC d3d12 dxgi dxguid)
+   # DXC compiles the HLSL that spirv-cross generates from SPIR-V (task 3.4): dxcapi.h and
+   # dxcompiler.lib come with the Windows SDK, so no vcpkg package is needed — but dxcompiler.dll
+   # has to sit next to the executable at run time (it is loaded, not statically bound)
+   target_link_libraries(${PROJECT_NAME} PUBLIC d3d12 dxgi dxguid dxcompiler
+           spirv-cross-core spirv-cross-glsl spirv-cross-hlsl)
  endif()
 
  if(SG_TARGET_OS_ANDROID)

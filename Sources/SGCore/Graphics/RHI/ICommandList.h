@@ -56,6 +56,9 @@ namespace SGCore
         /// Explicit resource state transition; a no-op on GL (see DeviceProperties::m_supportsExplicitBarriers).
         virtual void transition(const Ref<IGPUObject>& resource, GPUResourceState newState) noexcept = 0;
 
+        /// True while commands can be recorded into this list. Immediate backends are always ready.
+        [[nodiscard]] virtual bool isRecording() const noexcept { return true; }
+
         /// Copies data into a device-local buffer (staging is the backend's business).
         virtual void uploadData(const Ref<IGPUBuffer>& dst, const void* data, std::uint64_t size, std::uint64_t offset = 0) noexcept = 0;
     };

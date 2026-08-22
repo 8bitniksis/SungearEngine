@@ -33,6 +33,10 @@ namespace SGCore
                                       std::uint64_t offset = 0, std::uint64_t range = 0) noexcept = 0;
         /// Textures stay legacy ITexture2D objects until they move under the RHI.
         virtual void setTexture(std::uint32_t binding, const Ref<ITexture2D>& texture, std::uint32_t arrayIndex = 0) noexcept = 0;
+        /// Binds the backend's own texture object (what TextureUnits stores), skipping the legacy
+        /// facade. Backends that have no such object ignore it.
+        virtual void setBackendTexture(std::uint32_t /*binding*/, const Ref<IGPUObject>& /*texture*/,
+                                       std::uint32_t /*arrayIndex*/ = 0) noexcept { }
         virtual void setCubemap(std::uint32_t binding, const Ref<ICubemapTexture>& texture) noexcept = 0;
     };
 }

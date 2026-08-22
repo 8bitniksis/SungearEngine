@@ -22,7 +22,7 @@ namespace SGCore
     /// vulkanizer assigns their bindings itself and the layout location means nothing. The join is
     /// therefore by name: VkUniformBuffer registers here, VkShader::buildDescriptorSet() looks up
     /// every reflected uniform block that is not one of its own SGLegacyUniforms_* blocks.
-    struct SGCORE_EXPORT VulkanSharedUniformBuffers
+    struct SGCORE_EXPORT SharedUniformBuffers
     {
         static void set(const std::string& blockName, Ref<IGPUBuffer> buffer) noexcept;
         /// nullptr when no buffer was registered under that block name.

@@ -2,11 +2,11 @@
 // Created by stuka on 07.07.2023.
 //
 
-#ifndef SUNGEARENGINE_VKUNIFORMBUFFER_H
-#define SUNGEARENGINE_VKUNIFORMBUFFER_H
+#ifndef SUNGEARENGINE_RHIUNIFORMBUFFER_H
+#define SUNGEARENGINE_RHIUNIFORMBUFFER_H
 
 #include "SGCore/Graphics/API/IUniformBuffer.h"
-#include "SGCore/Graphics/RHI/IGPUBuffer.h"
+#include "IGPUBuffer.h"
 
 namespace SGCore
 {
@@ -15,12 +15,12 @@ namespace SGCore
     /// class only pushes the changed range to the GPU.
     ///
     /// setLayoutLocation() is remembered but unused: the shaders declare these blocks without an
-    /// explicit binding, so on Vulkan the vulkanizer picks the binding and shaders find the buffer
-    /// by block name through VulkanSharedUniformBuffers.
-    class VkUniformBuffer : public IUniformBuffer
+    /// explicit binding, so the vulkanizer picks the binding and shaders find the buffer
+    /// by block name through SharedUniformBuffers.
+    class RHIUniformBuffer : public IUniformBuffer
     {
     public:
-        ~VkUniformBuffer() override;
+        ~RHIUniformBuffer() override;
 
         void bind() noexcept final;
         void prepare() noexcept final;
@@ -36,4 +36,4 @@ namespace SGCore
     };
 }
 
-#endif //SUNGEARENGINE_VKUNIFORMBUFFER_H
+#endif //SUNGEARENGINE_RHIUNIFORMBUFFER_H

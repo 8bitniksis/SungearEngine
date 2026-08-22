@@ -28,120 +28,6 @@ namespace
         // destruction after the renderer singleton is gone
         return SGCore::VkRenderer::getLiveDevice();
     }
-
-    using FormatChannelKind = SGCore::VulkanTypesCaster::FormatChannelKind;
-
-    /// One channel of a copied image in the value space glReadPixels converts through: (S|U)NORM
-    /// channels come out normalized, float and integer channels keep their plain magnitude.
-    float decodeChannel(const std::uint8_t* source, const FormatChannelKind kind, const std::uint32_t size) noexcept
-    {
-        switch(kind)
-        {
-            case FormatChannelKind::UNORM:
-            {
-                if(size == 1) return static_cast<float>(*source) / 255.0f;
-                std::uint16_t value; std::memcpy(&value, source, sizeof(value));
-                return static_cast<float>(value) / 65535.0f;
-            }
-            case FormatChannelKind::SNORM:
-            {
-                if(size == 1) return std::max(static_cast<float>(*reinterpret_cast<const std::int8_t*>(source)) / 127.0f, -1.0f);
-                std::int16_t value; std::memcpy(&value, source, sizeof(value));
-                return std::max(static_cast<float>(value) / 32767.0f, -1.0f);
-            }
-            case FormatChannelKind::UINT:
-            {
-                if(size == 1) return static_cast<float>(*source);
-                if(size == 2) { std::uint16_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
-                std::uint32_t value; std::memcpy(&value, source, sizeof(value));
-                return static_cast<float>(value);
-            }
-            case FormatChannelKind::SINT:
-            {
-                if(size == 1) return static_cast<float>(*reinterpret_cast<const std::int8_t*>(source));
-                if(size == 2) { std::int16_t value; std::memcpy(&value, source, sizeof(value)); return static_cast<float>(value); }
-                std::int32_t value; std::memcpy(&value, source, sizeof(value));
-                return static_cast<float>(value);
-            }
-            case FormatChannelKind::SFLOAT:
-            {
-                if(size == 2)
-                {
-                    std::uint16_t half; std::memcpy(&half, source, sizeof(half));
-                    return glm::unpackHalf1x16(half);
-                }
-                float value; std::memcpy(&value, source, sizeof(value));
-                return value;
-            }
-            default:
-                return 0.0f;
-        }
-    }
-
-    /// Writes a decoded channel in the data type the attachment declares. Normalized types clamp and
-    /// scale, again matching what glReadPixels does when it narrows a float attachment.
-    void encodeChannel(std::uint8_t* destination, const SGGDataType type, const float value) noexcept
-    {
-        switch(type)
-        {
-            case SGGDataType::SGG_FLOAT:
-                std::memcpy(destination, &value, sizeof(value));
-                break;
-            case SGGDataType::SGG_UNSIGNED_BYTE:
-            case SGGDataType::SGG_BOOL:
-                *destination = static_cast<std::uint8_t>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
-                break;
-            case SGGDataType::SGG_BYTE:
-            {
-                const auto encoded = static_cast<std::int8_t>(std::lround(std::clamp(value, -1.0f, 1.0f) * 127.0f));
-                std::memcpy(destination, &encoded, sizeof(encoded));
-                break;
-            }
-            case SGGDataType::SGG_UNSIGNED_SHORT:
-            {
-                const auto encoded = static_cast<std::uint16_t>(std::lround(std::max(value, 0.0f)));
-                std::memcpy(destination, &encoded, sizeof(encoded));
-                break;
-            }
-            case SGGDataType::SGG_SHORT:
-            {
-                const auto encoded = static_cast<std::int16_t>(std::lround(value));
-                std::memcpy(destination, &encoded, sizeof(encoded));
-                break;
-            }
-            case SGGDataType::SGG_UNSIGNED_INT:
-            {
-                const auto encoded = static_cast<std::uint32_t>(std::llround(std::max(value, 0.0f)));
-                std::memcpy(destination, &encoded, sizeof(encoded));
-                break;
-            }
-            case SGGDataType::SGG_INT:
-            {
-                const auto encoded = static_cast<std::int32_t>(std::llround(value));
-                std::memcpy(destination, &encoded, sizeof(encoded));
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-    /// True when the image's channels are already stored exactly as the attachment's data type wants
-    /// them, so the copied bytes can go out untouched.
-    bool channelsMatchExactly(const FormatChannelKind kind, const std::uint32_t channelSize, const SGGDataType type) noexcept
-    {
-        switch(type)
-        {
-            case SGGDataType::SGG_FLOAT: return kind == FormatChannelKind::SFLOAT && channelSize == 4;
-            case SGGDataType::SGG_UNSIGNED_BYTE: return kind == FormatChannelKind::UNORM && channelSize == 1;
-            case SGGDataType::SGG_BYTE: return kind == FormatChannelKind::SNORM && channelSize == 1;
-            case SGGDataType::SGG_UNSIGNED_SHORT: return kind == FormatChannelKind::UINT && channelSize == 2;
-            case SGGDataType::SGG_SHORT: return kind == FormatChannelKind::SINT && channelSize == 2;
-            case SGGDataType::SGG_UNSIGNED_INT: return kind == FormatChannelKind::UINT && channelSize == 4;
-            case SGGDataType::SGG_INT: return kind == FormatChannelKind::SINT && channelSize == 4;
-            default: return false;
-        }
-    }
 }
 
 SGCore::VkFrameBuffer::~VkFrameBuffer()
@@ -402,7 +288,7 @@ bool SGCore::VkFrameBuffer::readAttachmentPixels(SGFrameBufferAttachmentType att
     if(outChannels <= 0 || channelSize == 0) return false;
 
     const auto imageLayout = VulkanTypesCaster::formatLayout(texture->getFormat());
-    if(imageLayout.m_kind == FormatChannelKind::UNKNOWN || imageLayout.m_channelSize == 0)
+    if(!imageLayout.isPlain())
     {
         SG_LOG_E("VkFrameBuffer: attachment image format {} has no plain channel layout and can not be read back.",
                  static_cast<int>(texture->getFormat()));
@@ -440,37 +326,8 @@ bool SGCore::VkFrameBuffer::readAttachmentPixels(SGFrameBufferAttachmentType att
 
     // offscreen passes are not flipped: row 0 of the image is NDC y = -1, the same row order glReadPixels returns
     const auto* src = static_cast<const std::uint8_t*>(staging->getMappedPointer());
-    const bool sameChannels = channelsMatchExactly(imageLayout.m_kind, imageLayout.m_channelSize, attachment->m_dataType) &&
-                              !imageLayout.m_reversedChannels;
-
-    if(sameChannels && imagePixel == outPixel)
-    {
-        std::memcpy(out.m_data.data(), src, out.m_data.size());
-    }
-    else if(sameChannels)
-    {
-        // only the channel count differs: a widened RGB image is narrowed back
-        const std::uint64_t copyBytes = std::min(imagePixel, outPixel);
-        for(std::uint64_t i = 0; i < pixelCount; ++i)
-        {
-            std::memcpy(out.m_data.data() + i * outPixel, src + i * imagePixel, copyBytes);
-        }
-    }
-    else
-    {
-        const auto channelsToConvert = std::min<std::uint32_t>(imageLayout.m_channels, static_cast<std::uint32_t>(outChannels));
-        for(std::uint64_t i = 0; i < pixelCount; ++i)
-        {
-            for(std::uint32_t channel = 0; channel < channelsToConvert; ++channel)
-            {
-                const std::uint32_t sourceChannel = imageLayout.m_reversedChannels && channel < 3 ? 2 - channel : channel;
-                const float value = decodeChannel(src + i * imagePixel + static_cast<std::uint64_t>(sourceChannel) * imageLayout.m_channelSize,
-                                                  imageLayout.m_kind, imageLayout.m_channelSize);
-                encodeChannel(out.m_data.data() + i * outPixel + static_cast<std::uint64_t>(channel) * channelSize,
-                              attachment->m_dataType, value);
-            }
-        }
-    }
+    PixelConversion::decodeFromImage(src, out.m_data.data(), pixelCount, imageLayout, static_cast<std::uint32_t>(imagePixel),
+                                     attachment->m_dataType, static_cast<std::uint32_t>(outChannels));
     return true;
 }
 

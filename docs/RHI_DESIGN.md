@@ -313,8 +313,8 @@ SGSL (.sgshader) → SGSLETranslator → GLSL 450 → glslang → SPIR-V + ре�
                                                             │
                        ┌────────────────────────────────────┼───────────────────┐
                        ▼                                    ▼                   ▼
-                GL46: GL_ARB_gl_spirv            Vulkan: как есть      DX12: spirv-cross → HLSL → DXC → DXIL
-                (fallback: GLSL напрямую)
+                GL46: GL_ARB_gl_spirv            Vulkan: как есть      DX12: spirv-cross → HLSL → d3dcompiler → DXBC (SM 5.1)
+                (fallback: GLSL напрямую)                                    (DXC/DXIL — когда понадобится SM 6)
 ```
 
 - Транслятор SGSL уже генерирует GLSL (`Utils/SGSL/SGSLETranslator`) —
@@ -494,6 +494,83 @@ offscreen-attachment, readback, screen blit, readback экрана — байт 
 - **Завершение.** `IRenderer::shutdown()` вызывается в конце `CoreMain::startCycle()`;
   Vulkan освобождает устройство там, а не в статических деструкторах (loader-DLL к тому
   моменту может быть выгружена).
+
+### DX12-бэкенд (этап 3, `Sources/SGCore/Graphics/API/DX12/`)
+
+Третья реализация `IDevice` — `RHI/DX12Device`. Концепции сопоставлены с Vulkan-бэкендом
+один в один, чтобы два explicit-бэкенда читались параллельно:
+
+| RHI / Vulkan | DX12 |
+|---|---|
+| `VulkanContext` (instance, device, VMA) | `DX12Context` (DXGI-фабрика, адаптер, device, direct-очередь, CPU-кучи RTV/DSV) |
+| `VkFence` на каждый submit | один монотонный `ID3D12Fence`; **id сабмишена = значение фенса** |
+| `VkCommandBuffer` из пула | `DX12CommandContext` = аллокатор + список (перевыпускаются вместе) |
+| layout изображения + барьер | `D3D12_RESOURCE_STATES` + transition-барьер (`DX12Texture`) |
+| dynamic rendering | `OMSetRenderTargets` + явные `Clear*View` (не `ID3D12GraphicsCommandList4`-render pass: тайловые подсказки движку не нужны, а так `clearColorAttachment` законен в любой точке прохода) |
+| `VkDescriptorSetLayout` / `VkPipelineLayout` | дескрипторные таблицы / root signature (по одной CBV-SRV-UAV и sampler-таблице на set) |
+| transient descriptor set из пула | диапазон в shader-visible куче-кольце (`DX12DescriptorHeap::allocateRange`) |
+| VMA host-visible / device-local | UPLOAD-куча (постоянно замаплена) / DEFAULT-куча + staging |
+
+Решения, которых нет в интерфейсах:
+
+- **Буферам не нужны барьеры**: D3D12 продвигает буфер из `COMMON` в состояние, которое требует
+  команда, и возвращает обратно. Состояние трекается только у изображений.
+- **Свопчейн**: flip-discard, `R8G8B8A8_UNORM` (не sRGB — движок пишет готовые к выводу значения,
+  как на GL и Vulkan), `Present(1, 0)` = вертикальная синхронизация (двойник FIFO). Число буферов
+  **равно** числу кадров в полёте (2): acquire-семафора здесь нет, DXGI отдаёт индекс синхронно,
+  поэтому полёт ограничивается ожиданием фенса того сабмишена, который последним презентовал
+  именно этот буфер. HWND — `glfwGetWin32Window`, `MakeWindowAssociation(DXGI_MWA_NO_ALT_ENTER)`.
+- **После `Present` фенс сигналится ещё раз.** Презент — это работа очереди, которую фенс,
+  засигналенный перед ним, не покрывает: без второго сигнала «дождаться кадра» не означает
+  «презент завершён», и свопчейн можно разрушить или пересоздать под ним (что и произошло на
+  первом же кадре — падение без единого сообщения слоя отладки).
+- **Глубина [0; 1] — единственное расхождение с Vulkan-бэкендом**: у D3D12 нет аналога
+  `VK_EXT_depth_clip_control`, поэтому `DeviceProperties::m_depthZeroToOne = true` (на Vulkan
+  расширение позволяет сохранить GL-диапазон `[-1; 1]`). Проекции движка обязаны это учитывать —
+  это всплывёт на смоуке (3.5).
+- **Модель биндинга = то, что порождает spirv-cross**: set N → register space N, биндинг → регистр
+  своего класса (`b` для константных буферов, `t` для read-only, `u` для read-write, `s` для
+  сэмплеров). Root signature строится из рефлексии SPIR-V — то есть из того же источника, что и
+  дескрипторные раскладки Vulkan.
+- **Шейдерный путь — `DX12ShaderCompiler`: SPIR-V → HLSL (spirv-cross) → DXIL (DXC, shader model
+  6.0)**. Попытка обойтись `d3dcompiler`/SM 5.1 не пережила корпус (FXC требует разворачиваемых
+  циклов), но пакета vcpkg DXC всё равно не требует: `dxcapi.h` и `dxcompiler.lib` есть в Windows
+  SDK, а `dxil.dll` не нужен — этот DXC подписывает DXIL сам. Рядом с exe обязан лежать
+  `dxcompiler.dll`. Вершинные входы приходят как `TEXCOORD<location>` (так их называет spirv-cross),
+  выходы фрагмента — `SV_Target<n>`.
+- **Регистры HLSL назначает движок, а не spirv-cross**: счётчик на класс (b/t/u/s) в каждом space,
+  ресурс занимает столько регистров, сколько у него элементов массива. Та же карта идёт и в
+  `add_hlsl_resource_binding`, и в root signature — иначе они разъезжаются на первом же массиве
+  сэмплеров («SRV binding ranges overlap»).
+- **Глубина конвертируется в шейдере** (`fixup_clipspace`), а не в проекциях движка: GL `[-w; w]` →
+  D3D `[0; w]`. Это ответ на «у D3D нет `VK_EXT_depth_clip_control`» — движок остаётся GL-шным.
+- **Флип окна** — отрицательная высота viewport'а, как на Vulkan; offscreen без флипа. Инверсия
+  winding'а на D3D12 не динамическая, поэтому «пасс в окно» входит в ключ варианта PSO.
+- ⚠️ **Геометрических шейдеров у HLSL-бэкенда spirv-cross нет** (vertex/fragment/compute/mesh/task).
+  Три шейдера корпуса с `#geometry` на DX12 не собираются — это открытый вопрос этапа 3.
+- **Копия + чтение в одном сабмите требуют барьера для буфера.** Продвижение из `COMMON` держится
+  до конца `ExecuteCommandLists`, а список аплоадов исполняется в том же сабмите, что и основной,
+  поэтому после `CopyBufferRegion` буфер остаётся в `COPY_DEST` и использовать его как вершинный —
+  ошибка валидации. `uploadData` ставит переход в `GENERIC_READ`.
+- **Стенсил-референс — состояние списка команд**, а не PSO (`OMSetStencilRef` при смене пайплайна).
+- **Семантики вершинного входа**: `TEXCOORD<location>` — так spirv-cross называет вход SPIR-V
+  location N. Раскладка меша пересекается с `m_vertexInputs` программы, как на Vulkan.
+- **Общий слой фасадов (2026-08-20).** Всё, что у двух explicit-бэкендов совпало бы дословно, живёт
+  в `Graphics/RHI/`, а не копией на бэкенд: `PixelConversion` (конверсия CPU↔раскладка образа в обе
+  стороны), `TextureUnits` (юнит → текстура), `SharedUniformBuffers` (блок по имени), `LiveDevice`
+  (устройство для фасадов, переживающих рендерер), `RHIVertexBuffer`/`RHIIndexBuffer`/
+  `RHIVertexArray`/`RHIUniformBuffer`, `RHILegacyShader` (legacy-юниформы по рефлексии, таблица
+  сэмплеров, per-draw дескрипторный набор) и `RHILegacyDraw` (renderMeshData/renderArray в терминах
+  RHI). Бэкенд-специфика ужалась до хуков: `IDevice::allocateTransientUniforms`,
+  `IDevice::getDummyBackendTexture`, `IDescriptorSet::setBackendTexture`,
+  `RHILegacyShader::setAsCurrentShader`/`fillBackendDescriptors`. Причина не косметическая: именно в
+  этих местах Vulkan заплатил за грабли (per-draw срез юниформов, `isUniformExists` на массивах,
+  `useInteger` на сэмплере) — вторая копия разошлась бы с первой.
+- **Не реализовано после 3.3/3.4/3.5**: push constants → root constants (ни один шейдер движка их не
+  использует); флип viewport'а для окна; шейдерный путь корпуса — root signature строится по
+  «биндинг = регистр», а массивы сэмплеров занимают несколько регистров (нужна явная карта через
+  `add_hlsl_resource_binding`), и FXC (SM 5.1) не разворачивает циклы корпуса, то есть для движка
+  всё-таки нужен DXC/SM 6.
 
 ## Раскладка по файлам и порядок миграции
 

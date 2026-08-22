@@ -4,6 +4,8 @@
 
 #include "VulkanDescriptorSet.h"
 
+#include "VulkanTexture.h"
+
 void SGCore::VulkanDescriptorSet::setUniformBuffer(std::uint32_t binding, const Ref<IGPUBuffer>& buffer,
                                                    std::uint64_t offset, std::uint64_t range) noexcept
 {
@@ -35,6 +37,12 @@ void SGCore::VulkanDescriptorSet::setTexture(std::uint32_t binding, const Ref<IT
     entry.m_texture = texture;
     entry.m_arrayIndex = arrayIndex;
     ++m_version;
+}
+
+void SGCore::VulkanDescriptorSet::setBackendTexture(std::uint32_t binding, const Ref<IGPUObject>& texture, std::uint32_t arrayIndex) noexcept
+{
+    // the unit table keeps textures as IGPUObject; on this backend they are always VulkanTexture
+    setVulkanTexture(binding, std::static_pointer_cast<VulkanTexture>(texture), arrayIndex);
 }
 
 void SGCore::VulkanDescriptorSet::setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex) noexcept

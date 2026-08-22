@@ -33,16 +33,7 @@ namespace SGCore
         VkDescriptorSet m_set = VK_NULL_HANDLE;
     };
 
-    /// A slice of the per-frame uniform arena, ready to be filled and bound at a single offset.
-    struct VulkanUniformSlice
-    {
-        Ref<VulkanGPUBuffer> m_buffer;
-        std::uint64_t m_offset { };
-        /// Host-visible memory of exactly the requested size; nullptr when the allocation failed.
-        void* m_mapped { };
-    };
-
-    /// One vkQueueSubmit2 worth of work plus everything that must stay alive until its fence signals.
+        /// One vkQueueSubmit2 worth of work plus everything that must stay alive until its fence signals.
     struct VulkanSubmission
     {
         std::vector<VkCommandBuffer> m_commandBuffers;
@@ -95,7 +86,9 @@ namespace SGCore
         /// recorded, so values that differ per draw can not live in one buffer written in place: the
         /// last write would be what every draw of the pass reads. Each draw copies its values into its
         /// own slice instead and binds that offset.
-        [[nodiscard]] VulkanUniformSlice allocateTransientUniforms(std::uint64_t size) noexcept;
+        [[nodiscard]] UniformSlice allocateTransientUniforms(std::uint64_t size) noexcept override;
+
+        [[nodiscard]] Ref<IGPUObject> getDummyBackendTexture() noexcept override;
 
         /// Opens a new frame's arena region. Regions rotate, so a region is refilled only after the
         /// frames that recorded into it have long since finished.

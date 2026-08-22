@@ -84,6 +84,17 @@ DXGI_FORMAT SGCore::DX12TypesCaster::sggInternalFormatToDXGI(SGGColorInternalFor
     }
 }
 
+DXGI_FORMAT SGCore::DX12TypesCaster::sggInternalFormatToDXGITexel(SGGColorInternalFormat format) noexcept
+{
+    switch(format)
+    {
+        case SGGColorInternalFormat::SGG_RGB32_FLOAT: return DXGI_FORMAT_R32G32B32_FLOAT;
+        case SGGColorInternalFormat::SGG_RGB32_INT: return DXGI_FORMAT_R32G32B32_SINT;
+        case SGGColorInternalFormat::SGG_RGB32_UNSIGNED_INT: return DXGI_FORMAT_R32G32B32_UINT;
+        default: return sggInternalFormatToDXGI(format);
+    }
+}
+
 bool SGCore::DX12TypesCaster::needsAlphaExpansion(SGGColorInternalFormat format) noexcept
 {
     switch(format)

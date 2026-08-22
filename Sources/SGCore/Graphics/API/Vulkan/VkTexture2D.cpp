@@ -43,6 +43,15 @@ void SGCore::VkTexture2D::create()
 
     destroyOnGPU();
 
+    // A texture buffer is not an image: GL exposes it as GL_TEXTURE_BUFFER, Vulkan as a uniform
+    // texel buffer. Creating an image for it caps the element count at maxImageDimension2D (32768
+    // here), and the batch vertex buffer alone needs 40440 texels.
+    if(m_type == SGTextureType::SG_TEXTURE_BUFFER)
+    {
+        createAsTexelBuffer();
+        return;
+    }
+
     VulkanTextureDesc desc;
     desc.m_width = static_cast<std::uint32_t>(m_width);
     desc.m_height = static_cast<std::uint32_t>(m_height);
@@ -196,6 +205,11 @@ void SGCore::VkTexture2D::subTextureDataOnGAPISide(const std::uint8_t* data, std
 
 void SGCore::VkTexture2D::destroyOnGPU() noexcept
 {
+    if(m_texelBuffer)
+    {
+        // the buffer holds the context itself, so it can outlive this facade safely
+        m_texelBuffer.reset();
+    }
     if(!m_vulkanTexture) return;
     if(auto* device = currentDevice())
     {
@@ -209,6 +223,11 @@ void SGCore::VkTexture2D::bind(const std::uint8_t& textureUnit) const noexcept
 {
     // Vulkan has no texture units: record "unit N holds this texture" and let VkShader join it with
     // the sampler->unit half at draw time (see TextureUnits)
+    if(m_texelBuffer)
+    {
+        TextureUnits::set(textureUnit, m_texelBuffer);
+        return;
+    }
     TextureUnits::set(textureUnit, m_vulkanTexture);
 }
 
@@ -232,4 +251,40 @@ SGCore::VkTexture2D& SGCore::VkTexture2D::operator=(const Ref<ITexture2D>& other
     m_dataType = other->m_dataType;
     m_channelsCount = other->m_channelsCount;
     return *this;
+}
+
+void SGCore::VkTexture2D::createAsTexelBuffer() noexcept
+{
+    auto* device = currentDevice();
+    if(!device) return;
+
+    const std::uint8_t texelSize = getSGGInternalFormatChannelsSizeInBytes(m_internalFormat);
+    const std::uint64_t bytes = static_cast<std::uint64_t>(m_width) * m_height * texelSize;
+    if(bytes == 0) return;
+
+    GPUBufferDesc desc;
+    // storage usage is what carries VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT (VulkanGPUBuffer::toVkUsage)
+    desc.m_usage = GPUBufferUsage::SGG_STORAGE_BUFFER | GPUBufferUsage::SGG_TRANSFER_DST;
+    desc.m_access = GPUMemoryAccess::SGG_HOST_VISIBLE;
+    desc.m_size = bytes;
+    desc.m_debugName = "texture_buffer";
+
+    auto buffer = device->createBuffer(desc);
+    if(!buffer) return;
+
+    m_texelBuffer = std::static_pointer_cast<VulkanGPUBuffer>(buffer);
+
+    if(m_textureData) m_texelBuffer->write(m_textureData.get(), bytes);
+
+    if(!m_texelBuffer->createTexelView(VulkanTypesCaster::sggInternalFormatToVkTexel(m_internalFormat)))
+    {
+        SG_LOG_E("VkTexture2D: could not create a texel buffer view; a samplerBuffer reading this will get the dummy view.");
+    }
+}
+
+void SGCore::VkTexture2D::subTextureBufferDataOnGAPISide(const size_t& bytesCount, const size_t& bytesOffset) noexcept
+{
+    if(!m_texelBuffer || !m_textureData) return;
+
+    m_texelBuffer->write(m_textureData.get() + bytesOffset, bytesCount, bytesOffset);
 }

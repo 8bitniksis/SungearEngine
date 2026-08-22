@@ -20,6 +20,12 @@ namespace SGCore
         /// upload data accordingly (see needsAlphaExpansion()).
         [[nodiscard]] static VkFormat sggInternalFormatToVk(SGGColorInternalFormat format) noexcept;
 
+        /// Format for a uniform texel buffer (GLSL samplerBuffer). Unlike the image mapping above it
+        /// must NOT widen 3-channel formats: the CPU data of a texture buffer is packed tightly, so a
+        /// widened format would read every texel at the wrong stride. Three-component formats are
+        /// optional for uniform texel buffers in Vulkan, but universally present on desktop.
+        [[nodiscard]] static VkFormat sggInternalFormatToVkTexel(SGGColorInternalFormat format) noexcept;
+
         /// True when sggInternalFormatToVk() widened a 3-channel format to 4 channels.
         [[nodiscard]] static bool needsAlphaExpansion(SGGColorInternalFormat format) noexcept;
 

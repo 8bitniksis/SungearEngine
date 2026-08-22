@@ -271,8 +271,13 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::RHILegacyShader::buildDescrip
     // join the two halves of the unit model: sampler name -> unit (recorded here) -> texture (TextureUnits)
     for(const auto& binding : m_reflection.m_bindings)
     {
+        // UNIFORM_TEXEL_BUFFER belongs here too: a GLSL samplerBuffer is addressed by the same unit
+        // model (useTextureBlock + ITexture2D::bind of an SG_TEXTURE_BUFFER texture), it just ends up
+        // as a buffer view rather than an image. Leaving it out meant every samplerBuffer kept the
+        // dummy view fillBackendDescriptors had put there, and batching read nothing.
         if(binding.m_type != ShaderDescriptorType::COMBINED_IMAGE_SAMPLER &&
-           binding.m_type != ShaderDescriptorType::SAMPLED_IMAGE) continue;
+           binding.m_type != ShaderDescriptorType::SAMPLED_IMAGE &&
+           binding.m_type != ShaderDescriptorType::UNIFORM_TEXEL_BUFFER) continue;
 
         // an array sampler is addressed element-wise by the passes ("mat_diffuseSamplers[0]"), while
         // reflection reports one binding under the base name — resolve every element
@@ -298,6 +303,9 @@ const SGCore::Ref<SGCore::IDescriptorSet>& SGCore::RHILegacyShader::buildDescrip
         for(std::uint32_t element = 0; element < count; ++element)
         {
             if(boundElements.contains(element)) continue;
+            // a texel buffer takes a buffer view, not an image: its fallback is the dummy view that
+            // fillBackendDescriptors already wrote, and a 1x1 white image would be the wrong kind
+            if(binding.m_type == ShaderDescriptorType::UNIFORM_TEXEL_BUFFER) continue;
             if(auto* device = currentDevice())
             {
                 if(const auto dummy = device->getDummyBackendTexture())

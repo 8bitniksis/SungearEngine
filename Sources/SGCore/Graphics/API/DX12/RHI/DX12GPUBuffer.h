@@ -41,6 +41,16 @@ namespace SGCore
         [[nodiscard]] D3D12_GPU_VIRTUAL_ADDRESS getGPUAddress() const noexcept;
         [[nodiscard]] bool isHostVisible() const noexcept { return m_mapped != nullptr; }
         [[nodiscard]] bool isValid() const noexcept { return m_resource != nullptr; }
+
+        /// Marks the buffer as a typed (texel) buffer — what a GLSL samplerBuffer becomes in HLSL
+        /// (Buffer<float4>). The format must not widen 3-channel data: the elements are packed tight.
+        void setTexelFormat(DXGI_FORMAT format, std::uint32_t elementsCount) noexcept
+        {
+            m_texelFormat = format;
+            m_texelElements = elementsCount;
+        }
+        [[nodiscard]] bool isTexelBuffer() const noexcept { return m_texelFormat != DXGI_FORMAT_UNKNOWN; }
+        [[nodiscard]] D3D12_SHADER_RESOURCE_VIEW_DESC getTexelSRVDesc() const noexcept;
         [[nodiscard]] void* getMappedPointer() const noexcept { return m_mapped; }
         /// Allocated size, which is the requested one rounded up for constant buffer alignment.
         [[nodiscard]] std::uint64_t getAllocatedSize() const noexcept { return m_allocatedSize; }
@@ -49,6 +59,8 @@ namespace SGCore
         DX12Device& m_device;
         std::shared_ptr<DX12Context> m_context;
         DX12Ptr<ID3D12Resource> m_resource;
+        DXGI_FORMAT m_texelFormat = DXGI_FORMAT_UNKNOWN;
+        std::uint32_t m_texelElements { };
         void* m_mapped { };
         std::uint64_t m_allocatedSize { };
     };

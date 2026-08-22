@@ -8,6 +8,7 @@
 
 #include "SGCore/Graphics/API/ITexture2D.h"
 #include "RHI/DX12Texture.h"
+#include "RHI/DX12GPUBuffer.h"
 
 namespace SGCore
 {
@@ -34,6 +35,12 @@ namespace SGCore
         [[nodiscard]] const Ref<DX12Texture>& getDX12Texture() const noexcept { return m_dx12Texture; }
 
     private:
+        void subTextureBufferDataOnGAPISide(const size_t& bytesCount, const size_t& bytesOffset) noexcept override;
+
+        /// SG_TEXTURE_BUFFER path: a typed buffer with an SRV, not a 2D texture. An image would cap the
+        /// element count at the maximum texture dimension, and the batch buffers exceed it.
+        void createAsTexelBuffer() noexcept;
+
         void subTextureDataOnGAPISide(const std::uint8_t* data, std::size_t areaWidth, std::size_t areaHeight,
                                       std::size_t areaOffsetX, std::size_t areaOffsetY) noexcept override;
 
@@ -45,6 +52,8 @@ namespace SGCore
         void clearOnGPU(bool depth) noexcept;
 
         Ref<DX12Texture> m_dx12Texture;
+        /// Set instead of m_dx12Texture when m_type == SG_TEXTURE_BUFFER.
+        Ref<DX12GPUBuffer> m_texelBuffer;
     };
 }
 

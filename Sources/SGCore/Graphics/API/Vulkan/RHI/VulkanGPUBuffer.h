@@ -33,6 +33,13 @@ namespace SGCore
 
         static VkBufferUsageFlags toVkUsage(GPUBufferUsage usage) noexcept;
 
+        /// Creates a uniform texel buffer view over the whole buffer — this is what a GLSL samplerBuffer
+        /// reads. The buffer must carry SGG_STORAGE_BUFFER usage, which is what brings the texel bit
+        /// along (see toVkUsage). Returns false and leaves the buffer usable as a plain buffer if the
+        /// view can not be created.
+        bool createTexelView(VkFormat format) noexcept;
+        [[nodiscard]] VkBufferView getTexelView() const noexcept { return m_texelView; }
+
         /// Destroys the VkBuffer; the object becomes an empty shell (isValid() == false).
         void releaseGPU() noexcept;
 
@@ -42,5 +49,6 @@ namespace SGCore
         VkBuffer m_buffer = VK_NULL_HANDLE;
         VmaAllocation m_allocation = VK_NULL_HANDLE;
         void* m_mapped { };
+        VkBufferView m_texelView = VK_NULL_HANDLE;
     };
 }

@@ -122,4 +122,19 @@ bool SGCore::DX12GPUBuffer::write(const void* data, std::uint64_t size, std::uin
     return true;
 }
 
+
+D3D12_SHADER_RESOURCE_VIEW_DESC SGCore::DX12GPUBuffer::getTexelSRVDesc() const noexcept
+{
+    D3D12_SHADER_RESOURCE_VIEW_DESC desc { };
+    desc.Format = m_texelFormat;
+    desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+    desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    desc.Buffer.FirstElement = 0;
+    desc.Buffer.NumElements = m_texelElements;
+    desc.Buffer.StructureByteStride = 0;
+    desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+    return desc;
+}
+
+
 #endif

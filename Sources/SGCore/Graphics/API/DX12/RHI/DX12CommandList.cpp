@@ -473,6 +473,16 @@ bool SGCore::DX12CommandList::materializeSet(SetSlot& slot, std::uint32_t setInd
                     continue;
                 }
 
+                // a typed buffer takes a buffer SRV; it is never a render target, so none of the
+                // attachment aliasing below applies to it
+                if(bindingEntry && bindingEntry->m_texelBuffer && bindingEntry->m_texelBuffer->isTexelBuffer())
+                {
+                    const auto bufferView = bindingEntry->m_texelBuffer->getTexelSRVDesc();
+                    device->CreateShaderResourceView(bindingEntry->m_texelBuffer->getResource(), &bufferView, handle);
+                    m_submission.m_keepAlive.push_back(bindingEntry->m_texelBuffer);
+                    continue;
+                }
+
                 // The passes bind every attachment of a framebuffer as a texture up front and only
                 // then pick which one to draw into, so a descriptor can end up pointing at the very
                 // image this pass renders to. Reading it is undefined and the debug layer complains,

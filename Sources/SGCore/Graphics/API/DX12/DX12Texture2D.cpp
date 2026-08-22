@@ -41,6 +41,15 @@ void SGCore::DX12Texture2D::create()
 
     destroyOnGPU();
 
+    // A texture buffer is not a 2D texture: GL exposes it as GL_TEXTURE_BUFFER, D3D12 as a typed
+    // buffer SRV. As a texture its element count would be capped by the maximum texture dimension,
+    // and the batch vertex buffer alone needs far more than that.
+    if(m_type == SGTextureType::SG_TEXTURE_BUFFER)
+    {
+        createAsTexelBuffer();
+        return;
+    }
+
     DX12TextureDesc desc;
     desc.m_width = static_cast<std::uint32_t>(m_width);
     desc.m_height = static_cast<std::uint32_t>(m_height);
@@ -187,6 +196,8 @@ void SGCore::DX12Texture2D::subTextureDataOnGAPISide(const std::uint8_t* data, s
 
 void SGCore::DX12Texture2D::destroyOnGPU() noexcept
 {
+    // an ID3D12Resource keeps the device alive through COM, so simply dropping the reference is safe
+    m_texelBuffer.reset();
     if(!m_dx12Texture) return;
     if(auto* device = currentDevice())
     {
@@ -200,6 +211,11 @@ void SGCore::DX12Texture2D::bind(const std::uint8_t& textureUnit) const noexcept
 {
     // D3D12 has no texture units: record "unit N holds this texture" and let DX12Shader join it
     // with the sampler->unit half at draw time (see TextureUnits)
+    if(m_texelBuffer)
+    {
+        TextureUnits::set(textureUnit, m_texelBuffer);
+        return;
+    }
     TextureUnits::set(textureUnit, m_dx12Texture);
 }
 
@@ -223,6 +239,40 @@ SGCore::DX12Texture2D& SGCore::DX12Texture2D::operator=(const Ref<ITexture2D>& o
     m_dataType = other->m_dataType;
     m_channelsCount = other->m_channelsCount;
     return *this;
+}
+
+
+void SGCore::DX12Texture2D::createAsTexelBuffer() noexcept
+{
+    auto* device = currentDevice();
+    if(!device) return;
+
+    const std::uint8_t texelSize = getSGGInternalFormatChannelsSizeInBytes(m_internalFormat);
+    const std::uint64_t elements = static_cast<std::uint64_t>(m_width) * m_height;
+    const std::uint64_t bytes = elements * texelSize;
+    if(bytes == 0) return;
+
+    GPUBufferDesc desc;
+    desc.m_usage = GPUBufferUsage::SGG_STORAGE_BUFFER | GPUBufferUsage::SGG_TRANSFER_DST;
+    desc.m_access = GPUMemoryAccess::SGG_HOST_VISIBLE;
+    desc.m_size = bytes;
+    desc.m_debugName = "texture_buffer";
+
+    auto buffer = device->createBuffer(desc);
+    if(!buffer) return;
+
+    m_texelBuffer = std::static_pointer_cast<DX12GPUBuffer>(buffer);
+    m_texelBuffer->setTexelFormat(DX12TypesCaster::sggInternalFormatToDXGITexel(m_internalFormat),
+                                  static_cast<std::uint32_t>(elements));
+
+    if(m_textureData) m_texelBuffer->write(m_textureData.get(), bytes);
+}
+
+void SGCore::DX12Texture2D::subTextureBufferDataOnGAPISide(const size_t& bytesCount, const size_t& bytesOffset) noexcept
+{
+    if(!m_texelBuffer || !m_textureData) return;
+
+    m_texelBuffer->write(m_textureData.get() + bytesOffset, bytesCount, bytesOffset);
 }
 
 #endif

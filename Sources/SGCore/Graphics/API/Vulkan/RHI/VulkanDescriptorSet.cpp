@@ -4,6 +4,8 @@
 
 #include "VulkanDescriptorSet.h"
 
+#include "VulkanGPUBuffer.h"
+
 #include "VulkanTexture.h"
 
 void SGCore::VulkanDescriptorSet::setUniformBuffer(std::uint32_t binding, const Ref<IGPUBuffer>& buffer,
@@ -41,8 +43,16 @@ void SGCore::VulkanDescriptorSet::setTexture(std::uint32_t binding, const Ref<IT
 
 void SGCore::VulkanDescriptorSet::setBackendTexture(std::uint32_t binding, const Ref<IGPUObject>& texture, std::uint32_t arrayIndex) noexcept
 {
-    // the unit table keeps textures as IGPUObject; on this backend they are always VulkanTexture
-    setVulkanTexture(binding, std::static_pointer_cast<VulkanTexture>(texture), arrayIndex);
+    // The unit table keeps whatever the backend put there as IGPUObject. Usually a VulkanTexture,
+    // but a texture of type SG_TEXTURE_BUFFER is a texel buffer instead — a different descriptor
+    // kind, so it can not go through the image path.
+    if(const auto buffer = std::dynamic_pointer_cast<VulkanGPUBuffer>(texture))
+    {
+        setTexelBuffer(binding, buffer->getTexelView(), arrayIndex);
+        return;
+    }
+
+    setVulkanTexture(binding, std::dynamic_pointer_cast<VulkanTexture>(texture), arrayIndex);
 }
 
 void SGCore::VulkanDescriptorSet::setVulkanTexture(std::uint32_t binding, const Ref<VulkanTexture>& texture, std::uint32_t arrayIndex) noexcept

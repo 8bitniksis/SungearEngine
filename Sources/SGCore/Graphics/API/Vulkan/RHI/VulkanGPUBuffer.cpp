@@ -69,8 +69,32 @@ SGCore::VulkanGPUBuffer::~VulkanGPUBuffer()
     releaseGPU();
 }
 
+bool SGCore::VulkanGPUBuffer::createTexelView(VkFormat format) noexcept
+{
+    if(m_buffer == VK_NULL_HANDLE || !m_context) return false;
+
+    if(m_texelView != VK_NULL_HANDLE)
+    {
+        vkDestroyBufferView(m_context->m_device, m_texelView, nullptr);
+        m_texelView = VK_NULL_HANDLE;
+    }
+
+    VkBufferViewCreateInfo viewInfo { VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO };
+    viewInfo.buffer = m_buffer;
+    viewInfo.format = format;
+    viewInfo.offset = 0;
+    viewInfo.range = VK_WHOLE_SIZE;
+
+    return SG_VK_CHECK(vkCreateBufferView(m_context->m_device, &viewInfo, nullptr, &m_texelView));
+}
+
 void SGCore::VulkanGPUBuffer::releaseGPU() noexcept
 {
+    if(m_texelView != VK_NULL_HANDLE && m_context)
+    {
+        vkDestroyBufferView(m_context->m_device, m_texelView, nullptr);
+        m_texelView = VK_NULL_HANDLE;
+    }
     if(m_buffer != VK_NULL_HANDLE && m_context && m_context->m_allocator != VK_NULL_HANDLE)
     {
         vmaDestroyBuffer(m_context->m_allocator, m_buffer, m_allocation);

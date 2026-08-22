@@ -32,6 +32,9 @@ namespace SGCore
         bool m_ndcYFlipRequired { };
 
         std::uint32_t m_framesInFlight = 1;
+        /// Largest texel buffer the device can address, in texels. Batching sizes its vertex/index
+        /// texel buffers against this; zero would mean "nothing fits" and reject every mesh.
+        std::uint32_t m_maxTexelBufferElements = 1u << 27;
         std::uint32_t m_pushConstantsMaxSize = 128;
 
         // capabilities that the permanent GL fallback lacks; passes degrade instead of failing

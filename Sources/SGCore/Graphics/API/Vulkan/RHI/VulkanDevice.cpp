@@ -22,6 +22,7 @@ SGCore::VulkanDevice::VulkanDevice(VulkanContext& context, GLFWwindow* window) n
     m_properties.m_ndcYFlipRequired = true;
     m_properties.m_framesInFlight = VulkanSwapchain::frames_in_flight;
     m_properties.m_pushConstantsMaxSize = context.m_physicalDeviceProperties.limits.maxPushConstantsSize;
+    m_properties.m_maxTexelBufferElements = context.m_physicalDeviceProperties.limits.maxTexelBufferElements;
     m_properties.m_supportsExplicitBarriers = true;
     m_properties.m_supportsMultithreadedRecording = true;
     m_properties.m_supportsBindless = false;

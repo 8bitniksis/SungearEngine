@@ -21,6 +21,9 @@
 #include "SGCore/Memory/Assets/Materials/IMaterial.h"
 #include "SGCore/Memory/Assets/ModelAsset.h"
 #include "SGCore/Render/Alpha/OpaqueEntityTag.h"
+#include "SGCore/Render/Batching/Batch.h"
+#include "SGCore/Render/RenderAbilities/EnableBatchingPass.h"
+#include "SGCore/Render/RenderAbilities/EnableMeshPass.h"
 #include "SGCore/Render/Alpha/TransparentEntityTag.h"
 #include "SGCore/Render/Atmosphere/Atmosphere.h"
 #include "SGCore/Render/LayeredFrameReceiver.h"
@@ -138,6 +141,9 @@ void SGSmoke::SmokeApp::buildScene() noexcept
         SG_LOG_W("Smoke: BasicApp created no atmosphere (cube_model failed to load?); frame will have no sun.");
     }
 
+    /// opaque mesh entities, collected for the batch below
+    std::vector<SGCore::ECS::entity_t> batchableEntities;
+
     std::size_t modelIndex = 0;
     for(const auto& placed : placed_models)
     {
@@ -182,10 +188,56 @@ void SGSmoke::SmokeApp::buildScene() noexcept
                     registry->emplace<SGCore::TransparentEntityTag>(entity);
                 }
             }
+            else
+            {
+                batchableEntities.push_back(entity);
+            }
         }
 
         ++modelIndex;
     }
+
+    if(m_options.m_useBatching) buildBatch(batchableEntities);
+}
+
+void SGSmoke::SmokeApp::buildBatch(const std::vector<SGCore::ECS::entity_t>& entities) noexcept
+{
+    if(entities.empty())
+    {
+        SG_LOG_E("Smoke: --batching asked for, but the scene produced no opaque meshes to batch.");
+        m_exitCode = 2;
+        SGCore::CoreMain::getWindow().setShouldClose(true);
+        return;
+    }
+
+    const auto scene = SGCore::Scene::getCurrentScene();
+    auto registry = scene->getECSRegistry();
+
+    const auto batchEntity = registry->create();
+    auto& batch = registry->emplace<SGCore::Batch>(batchEntity);
+    // PBRRPBatchingPass iterates view<Batch, EnableBatchingPass>: without the second component the
+    // batch is built and uploaded, and simply never drawn
+    registry->emplace<SGCore::EnableBatchingPass>(batchEntity);
+
+    // -1 means every entity fit; anything else is the index of the first one that did not, and a
+    // partially filled batch would silently drop geometry out of the reference frame
+    const std::uint64_t firstRejected = batch.insertEntities(entities, *registry);
+    if(firstRejected != static_cast<std::uint64_t>(-1))
+    {
+        SG_LOG_E("Smoke: batch ran out of space at entity {} of {}.", firstRejected, entities.size());
+        m_exitCode = 2;
+        SGCore::CoreMain::getWindow().setShouldClose(true);
+        return;
+    }
+
+    // a batched mesh keeps being drawn by the ordinary mesh pass as well until this tag is gone,
+    // and the frame would then hold every triangle twice
+    for(const auto entity : entities)
+    {
+        registry->remove<SGCore::EnableMeshPass>(entity);
+    }
+
+    SG_LOG_I("Smoke: batched {} meshes, {} triangles.", entities.size(), batch.getTrianglesCount());
 }
 
 void SGSmoke::SmokeApp::captureAndFinish() noexcept

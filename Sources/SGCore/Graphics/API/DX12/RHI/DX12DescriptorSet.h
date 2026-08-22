@@ -13,6 +13,7 @@
 
 #include "SGCore/Graphics/RHI/IDescriptorSet.h"
 #include "DX12Texture.h"
+#include "DX12GPUBuffer.h"
 
 namespace SGCore
 {
@@ -34,6 +35,8 @@ namespace SGCore
             Ref<ICubemapTexture> m_cubemap;
             /// Set when the caller already holds the backend texture; takes precedence over m_texture.
             Ref<DX12Texture> m_dx12Texture;
+            /// Typed buffer (GLSL samplerBuffer); takes precedence over the texture fields.
+            Ref<DX12GPUBuffer> m_texelBuffer;
             std::uint32_t m_arrayIndex { };
         };
 

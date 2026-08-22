@@ -7,6 +7,7 @@
 
 #include "SGCore/Graphics/API/ITexture2D.h"
 #include "RHI/VulkanTexture.h"
+#include "RHI/VulkanGPUBuffer.h"
 
 namespace SGCore
 {
@@ -32,6 +33,12 @@ namespace SGCore
         [[nodiscard]] const Ref<VulkanTexture>& getVulkanTexture() const noexcept { return m_vulkanTexture; }
 
     private:
+        void subTextureBufferDataOnGAPISide(const size_t& bytesCount, const size_t& bytesOffset) noexcept override;
+
+        /// SG_TEXTURE_BUFFER path: a texel buffer, not an image. Kept apart from m_vulkanTexture
+        /// because the two are different descriptor kinds — a samplerBuffer reads a VkBufferView.
+        void createAsTexelBuffer() noexcept;
+
         void subTextureDataOnGAPISide(const std::uint8_t* data, std::size_t areaWidth, std::size_t areaHeight, std::size_t areaOffsetX, std::size_t areaOffsetY) noexcept override;
 
         /// Copies pixels (in the texture's declared format) into the image region and leaves it in
@@ -39,6 +46,8 @@ namespace SGCore
         void uploadRegion(const std::uint8_t* data, std::uint32_t width, std::uint32_t height, std::uint32_t x, std::uint32_t y) noexcept;
 
         Ref<VulkanTexture> m_vulkanTexture;
+        /// Set instead of m_vulkanTexture when m_type == SG_TEXTURE_BUFFER.
+        Ref<VulkanGPUBuffer> m_texelBuffer;
     };
 }
 

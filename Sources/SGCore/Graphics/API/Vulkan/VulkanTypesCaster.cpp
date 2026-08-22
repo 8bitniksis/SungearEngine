@@ -80,6 +80,23 @@ VkFormat SGCore::VulkanTypesCaster::sggInternalFormatToVk(SGGColorInternalFormat
     }
 }
 
+VkFormat SGCore::VulkanTypesCaster::sggInternalFormatToVkTexel(SGGColorInternalFormat format) noexcept
+{
+    switch(format)
+    {
+        case SGGColorInternalFormat::SGG_RGB8: return VK_FORMAT_R8G8B8_UNORM;
+        case SGGColorInternalFormat::SGG_RGB16_FLOAT: return VK_FORMAT_R16G16B16_SFLOAT;
+        case SGGColorInternalFormat::SGG_RGB32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
+        case SGGColorInternalFormat::SGG_RGB8_INT: return VK_FORMAT_R8G8B8_SINT;
+        case SGGColorInternalFormat::SGG_RGB8_UNSIGNED_INT: return VK_FORMAT_R8G8B8_UINT;
+        case SGGColorInternalFormat::SGG_RGB16_INT: return VK_FORMAT_R16G16B16_SINT;
+        case SGGColorInternalFormat::SGG_RGB16_UNSIGNED_INT: return VK_FORMAT_R16G16B16_UINT;
+        case SGGColorInternalFormat::SGG_RGB32_INT: return VK_FORMAT_R32G32B32_SINT;
+        case SGGColorInternalFormat::SGG_RGB32_UNSIGNED_INT: return VK_FORMAT_R32G32B32_UINT;
+        default: return sggInternalFormatToVk(format);
+    }
+}
+
 bool SGCore::VulkanTypesCaster::needsAlphaExpansion(SGGColorInternalFormat format) noexcept
 {
     switch(format)

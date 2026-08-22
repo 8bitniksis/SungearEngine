@@ -28,6 +28,8 @@ SGCore::DX12Device::DX12Device(const std::shared_ptr<DX12Context>& context, GLFW
     m_properties.m_framesInFlight = DX12Swapchain::frames_in_flight;
     // root constants; their mapping arrives with the HLSL translation (task 3.4)
     m_properties.m_pushConstantsMaxSize = 128;
+    // D3D12_REQ_BUFFER_RESOURCE_TEXEL_COUNT_2_TO_EXP: a buffer SRV addresses at most 2^27 texels
+    m_properties.m_maxTexelBufferElements = 1u << 27;
     m_properties.m_supportsExplicitBarriers = true;
     m_properties.m_supportsMultithreadedRecording = true;
     m_properties.m_supportsBindless = false;

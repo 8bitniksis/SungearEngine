@@ -23,6 +23,12 @@ namespace SGCore
         /// RGB16...) are widened to their RGBA counterparts, exactly as on Vulkan.
         [[nodiscard]] static DXGI_FORMAT sggInternalFormatToDXGI(SGGColorInternalFormat format) noexcept;
 
+        /// Format for a typed (texel) buffer SRV. Must not widen: the elements of a texture buffer are
+        /// packed tight, and a widened format would read every one at the wrong stride. Only the
+        /// 32-bit three-component formats exist in DXGI; narrower ones fall back to the widened
+        /// mapping, which is wrong for them — no engine texture buffer uses those.
+        [[nodiscard]] static DXGI_FORMAT sggInternalFormatToDXGITexel(SGGColorInternalFormat format) noexcept;
+
         /// True when sggInternalFormatToDXGI() widened a 3-channel format to 4 channels.
         [[nodiscard]] static bool needsAlphaExpansion(SGGColorInternalFormat format) noexcept;
 

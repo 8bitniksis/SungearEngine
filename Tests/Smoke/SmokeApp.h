@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <vector>
 
 #include "SGCore/Main/BasicApp.h"
 
@@ -33,6 +34,11 @@ namespace SGSmoke
         /// Ask RenderDoc to capture exactly the frame this test reads back (needs the process to run
         /// under RenderDoc: renderdoccmd capture / the GUI).
         bool m_renderDocCapture { };
+        /// Put the opaque meshes into a Batch instead of drawing them one by one. This is the only
+        /// coverage the batching subsystem has: nothing else in the repository ever fills a Batch,
+        /// and SunShadowsPass draws Batch entities exclusively, so shadows only appear in this mode.
+        /// The frame differs from the default scene, so it has its own reference image.
+        bool m_useBatching { };
     };
 
     /**
@@ -57,6 +63,7 @@ namespace SGSmoke
         int m_exitCode = 0;
 
         void buildScene() noexcept;
+        void buildBatch(const std::vector<SGCore::ECS::entity_t>& entities) noexcept;
         void captureAndFinish() noexcept;
     };
 }

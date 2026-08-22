@@ -22,6 +22,8 @@
 #include "SGCore/Memory/Assets/ModelAsset.h"
 #include "SGCore/Render/Alpha/OpaqueEntityTag.h"
 #include "SGCore/Render/Batching/Batch.h"
+#include "SGCore/Render/Instancing/AutoInstancing.h"
+#include "SGCore/Render/Instancing/Instancing.h"
 #include "SGCore/Render/RenderAbilities/EnableBatchingPass.h"
 #include "SGCore/Render/RenderAbilities/EnableMeshPass.h"
 #include "SGCore/Render/Alpha/TransparentEntityTag.h"
@@ -198,6 +200,7 @@ void SGSmoke::SmokeApp::buildScene() noexcept
     }
 
     if(m_options.m_useBatching) buildBatch(batchableEntities);
+    if(m_options.m_useInstancing) buildInstancing(batchableEntities);
 }
 
 void SGSmoke::SmokeApp::buildBatch(const std::vector<SGCore::ECS::entity_t>& entities) noexcept
@@ -238,6 +241,41 @@ void SGSmoke::SmokeApp::buildBatch(const std::vector<SGCore::ECS::entity_t>& ent
     }
 
     SG_LOG_I("Smoke: batched {} meshes, {} triangles.", entities.size(), batch.getTrianglesCount());
+}
+
+void SGSmoke::SmokeApp::buildInstancing(const std::vector<SGCore::ECS::entity_t>& entities) noexcept
+{
+    if(entities.empty())
+    {
+        SG_LOG_E("Smoke: --instancing asked for, but the scene produced no opaque meshes to instance.");
+        m_exitCode = 2;
+        SGCore::CoreMain::getWindow().setShouldClose(true);
+        return;
+    }
+
+    const auto scene = SGCore::Scene::getCurrentScene();
+    auto registry = scene->getECSRegistry();
+
+    std::size_t groups = 0;
+    for(const auto entity : entities)
+    {
+        // groups by (mesh data, material): the smoke scene has three cubes sharing one mesh and a
+        // sphere, so this is a real instanced draw and not one instance per group
+        if(SGCore::AutoInstancing::addEntity(entity, *registry) == entt::null)
+        {
+            SG_LOG_E("Smoke: AutoInstancing rejected an entity (no mesh data or material?).");
+            m_exitCode = 2;
+            SGCore::CoreMain::getWindow().setShouldClose(true);
+            return;
+        }
+
+        // same rule as batching: an instanced mesh is still drawn by the ordinary mesh pass until
+        // this tag is gone, and the frame would hold every triangle twice
+        registry->remove<SGCore::EnableMeshPass>(entity);
+    }
+
+    registry->view<SGCore::Instancing>().each([&groups](const auto&) { ++groups; });
+    SG_LOG_I("Smoke: instanced {} meshes into {} group(s).", entities.size(), groups);
 }
 
 void SGSmoke::SmokeApp::captureAndFinish() noexcept

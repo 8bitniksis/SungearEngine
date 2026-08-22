@@ -49,6 +49,8 @@ namespace SGCore
 
         void useAttributes() const noexcept final;
 
+        void clearAttributesImpl() noexcept final { m_attributes.clear(); }
+
         [[nodiscard]] std::uintptr_t getNativeHandle() const noexcept final { return m_handler; }
 
     protected:

@@ -99,6 +99,16 @@ namespace SGCore
 
         virtual void useAttributes() const noexcept = 0;
 
+        /// Drops every recorded attribute, on this object and in the backend. A buffer whose layout is
+        /// redefined (the same mesh buffer bound into a second vertex array at a different location
+        /// offset — that is what Instancing does) must start from empty: addAttribute only ever
+        /// appends, and useAttributes replays the whole list into the bound vertex array.
+        void clearAttributes() noexcept
+        {
+            m_attributesDescs.clear();
+            clearAttributesImpl();
+        }
+
         /// Backend object handle (GL: buffer name), for wrapping legacy buffers into RHI objects.
         [[nodiscard]] virtual std::uintptr_t getNativeHandle() const noexcept { return 0; }
 
@@ -107,6 +117,8 @@ namespace SGCore
 
     protected:
         std::vector<std::uint8_t> m_data;
+        virtual void clearAttributesImpl() noexcept { }
+
         std::vector<AttributeDesc> m_attributesDescs;
 
         virtual void addAttributeImpl(std::uint32_t location,

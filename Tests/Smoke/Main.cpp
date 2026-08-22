@@ -26,6 +26,7 @@ namespace
             "  --geometry-pass        read back the geometry framebuffer, not the post-processed one\n"
             "  --batching             draw the opaque meshes through a Batch (and so with sun shadows);\n"
             "                         a different frame, with its own reference image\n"
+            "  --instancing           draw the opaque meshes through Instancing; own reference image\n"
             "  --renderdoc            trigger a RenderDoc capture of the captured frame\n"
             "  --attachment <n>       color attachment index to read back (default: the displayed one)\n"
             "  --threshold <0..255>   per-channel difference tolerated per pixel (default 8)\n"
@@ -90,6 +91,10 @@ int main(int argc, char** argv)
         else if(arg == "--batching")
         {
             options.m_useBatching = true;
+        }
+        else if(arg == "--instancing")
+        {
+            options.m_useInstancing = true;
         }
         else if(arg == "--attachment" && hasValue)
         {

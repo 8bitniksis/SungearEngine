@@ -175,6 +175,20 @@ description: >-
 - Include-корень: `SGSLETranslator::includeDirectory(<root>/Resources)`; общие файлы —
   `sg_shaders/impl/glsl4/{defines,structs_decl,uniform_bufs_decl}.glsl`.
 - Runtime-перекомпиляция: `IShader::m_autoRecompile`.
+- ⚠️ **Две ловушки препроцессора SGSL, обе стоили полной пересборки** (2026-08-22):
+  (1) `#ifndef` не переживает трансляцию — на выходе остаётся голый «#», GL-драйвер отвечает
+  «syntax error, unexpected $undefined at token "#"», а guarded-блок бесследно исчезает. Писать
+  `#ifdef … #else … #endif`, как весь остальной корпус. (2) **Хвостовой `//`-комментарий склеивает
+  строку со следующей**: комментарии вырезаются, строки объединяются, и директива уезжает в конец
+  предыдущего выражения (`layout(location = 0) out vec4 outColor; #else`). Комментарий перед
+  директивой — только отдельной строкой. Симптом у обеих: «undefined variable» на переменную,
+  объявление которой на глаз присутствует. Смотреть дамп в `SGSLETranslatorOutputDebug/`, а не
+  исходник.
+- **Варианты одной программы делаются дефайном**, а не копией файла: `addDefine` + `recompile()` на
+  ассете, загруженном через `loadAssetWithAlias` (иначе получишь тот же объект). Так сделаны
+  инстансинг (`SG_INSTANCED_RENDERING` поверх `StandardMeshShader`), декали и контур
+  (`SG_OUTLINE_COMBINE`). Отдельный `.sgshader` под вариант — лишняя сущность: так и появился
+  мёртвый `pbr/instancing.sgshader` с несуществующим инклудом.
 - Каждый `.sgshader` обёрнут в guard варианта `#if defined(SG_GLSL4) || defined(SG_GLES32)`
   (ветка `SG_HLSL` — `#error`), внутри — `#include` реализации из `impl/glsl4/`.
   SGSL-препроцессор разворачивает `#include` **не глядя на `#if`** — условия
@@ -758,6 +772,34 @@ constants, флип viewport'а для окна (решать в 3.5, когда
 - **Валидация Vulkan — самый быстрый способ найти такие расхождения**: она назвала и знаковость
   индексов, и несовпадение форматов атрибутов, и отсутствующий location 12, и превышение лимита
   ширины образа. На GL всё это молча работает «как-то».
+
+## Инстансинг (Render/Instancing, впервые запущен 2026-08-22)
+
+- **Инстансингу не нужен свой шейдер**: `PBRRPInstancingPass` берёт `StandardMeshShader` и компилирует
+  его с дефайном `SG_INSTANCED_RENDERING` через `loadAssetWithAlias` + `addDefine` + `recompile()`;
+  дефайн сдвигает локации вершинных атрибутов (см. `impl/glsl4/vertex_attributes_layout.glsl` — это
+  таблица локаций, а не шейдер, несмотря на прежнее имя `instancing.glsl`). Отдельный `.sgshader` под
+  вариант — лишняя сущность; так и появился мёртвый `pbr/instancing.sgshader` (удалён).
+- ⚠️ **Ничего из инстансинга движок не включает**: `AutoInstancing::addEntity` не вызывается нигде.
+  Единственное покрытие — `SGSmokeTest --instancing` (свой эталон `smoke_gl_instancing_1920x1080.png`).
+- **Нужны ДВА компонента**, как и у батчинга: проход ходит по
+  `view<EntityBaseInfo, Instancing, EnableInstancingPass>`. `addEntity` теперь ставит второй сам.
+- ⚠️ **Раскладка вершинных атрибутов — свойство пары «буфер + вершинный массив», а не буфера.**
+  Буферы меша живут сразу в двух массивах: своём (локации с 0) и в массиве `Instancing` (те же буферы
+  за per-instance трансформами, локации с 7). У GL это хранит VAO, поэтому там ничего не замечали;
+  explicit-бэкенды пересобирают `VertexInputDesc` на каждый дро из записанного списка. Раскладка пары
+  хранится в `IVertexArray::setBufferAttributes/getBufferAttributes`, её спрашивают `RHILegacyDraw` и
+  `GL46Renderer::drawLegacyArrayThroughRHI` **раньше**, чем `IVertexBuffer::getAttributes()`.
+- ⚠️ **`addAttribute` только добавляет, `useAttributes()` заливает в VAO ВЕСЬ накопленный список.**
+  Поэтому повторная привязка тех же буферов в другой массив без `clearAttributes()` записывала туда
+  обе раскладки, и локации 0..6 (трансформы инстансов) затирались вершинными данными — геометрия
+  выходила рваной одинаково на gl4 и gl46.
+- ⚠️ **`IMeshData::bindBuffersToVertexArray` обязана регистрировать буферы в том массиве, куда
+  привязывает** (`addVertexBuffer` + `setIndexBuffer`). GL записывает привязки в VAO, а explicit-путь
+  читает `IVertexArray::getVertexBuffers()/getIndexBuffer()`: без регистрации массив инстансинга был
+  без геометрии и без индексов, и дро молча ничего не делало. **Валидация Vulkan при этом чиста** —
+  `VulkanPipelineState` пересекает раскладку с рефлексией и выбрасывает входы, которые никто не
+  кормит, поэтому «пустой дро» выглядит совершенно законно. Не искать такое по валидации.
 
 ## Смоук-тест
 

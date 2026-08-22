@@ -167,11 +167,17 @@ void SGCore::RHILegacyDraw::drawArray(IDevice& device, ICommandList& commandList
     for(std::size_t slot = 0; slot < buffers.size(); ++slot)
     {
         auto* buffer = dynamic_cast<RHIVertexBuffer*>(buffers[slot]);
-        if(!buffer || !buffer->getGPUBuffer() || buffer->getAttributes().empty()) return;
+        if(!buffer || !buffer->getGPUBuffer()) return;
+
+        // a buffer shared between arrays (mesh buffers inside an Instancing array) contributes a
+        // different layout to each one, and only the array knows which
+        const auto* arrayAttributes = vertexArray->getBufferAttributes(buffer);
+        const auto& attributes = arrayAttributes ? *arrayAttributes : buffer->getAttributes();
+        if(attributes.empty()) return;
 
         std::uint32_t stride = 0;
         bool perInstance = false;
-        for(const auto& attribute : buffer->getAttributes())
+        for(const auto& attribute : attributes)
         {
             stride = static_cast<std::uint32_t>(attribute.m_stride);
             perInstance = perInstance || attribute.m_divisor > 0;

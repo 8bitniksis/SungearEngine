@@ -39,6 +39,10 @@ namespace SGSmoke
         /// and SunShadowsPass draws Batch entities exclusively, so shadows only appear in this mode.
         /// The frame differs from the default scene, so it has its own reference image.
         bool m_useBatching { };
+        /// Draw the opaque meshes through Instancing instead of one by one. Like m_useBatching, this is
+        /// the only coverage the instancing subsystem has: nothing else in the repository ever calls
+        /// AutoInstancing::addEntity. Has its own reference image.
+        bool m_useInstancing { };
     };
 
     /**
@@ -64,6 +68,7 @@ namespace SGSmoke
 
         void buildScene() noexcept;
         void buildBatch(const std::vector<SGCore::ECS::entity_t>& entities) noexcept;
+        void buildInstancing(const std::vector<SGCore::ECS::entity_t>& entities) noexcept;
         void captureAndFinish() noexcept;
     };
 }

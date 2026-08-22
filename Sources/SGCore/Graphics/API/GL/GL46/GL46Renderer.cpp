@@ -247,11 +247,18 @@ bool SGCore::GL46Renderer::drawLegacyArrayThroughRHI(const Ref<IVertexArray>& ve
     for(std::size_t slot = 0; slot < buffers.size(); ++slot)
     {
         const auto* buffer = buffers[slot];
-        if(buffer->getNativeHandle() == 0 || buffer->getAttributes().empty()) return false;
+        if(buffer->getNativeHandle() == 0) return false;
+
+        // a buffer shared between vertex arrays contributes a different layout to each (the mesh
+        // buffers inside an Instancing array sit behind the per-instance transform); only the array
+        // knows which one applies here
+        const auto* arrayAttributes = vertexArray->getBufferAttributes(buffer);
+        const auto& bufferAttributes = arrayAttributes ? *arrayAttributes : buffer->getAttributes();
+        if(bufferAttributes.empty()) return false;
 
         std::uint32_t stride = 0;
         bool perInstance = false;
-        for(const auto& attribute : buffer->getAttributes())
+        for(const auto& attribute : bufferAttributes)
         {
             stride = static_cast<std::uint32_t>(attribute.m_stride);
             perInstance = perInstance || attribute.m_divisor > 0;

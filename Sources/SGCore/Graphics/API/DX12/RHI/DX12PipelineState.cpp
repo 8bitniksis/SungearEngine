@@ -7,6 +7,7 @@
 #if defined(_WIN32)
 
 #include <algorithm>
+#include <string>
 
 #include "SGCore/Graphics/API/DX12/DX12TypesCaster.h"
 #include "SGCore/Logger/Logger.h"
@@ -73,17 +74,27 @@ SGCore::DX12Ptr<ID3D12PipelineState> SGCore::DX12PipelineState::build(const DX12
     // location N as TEXCOORDN, so the location of the RHI layout becomes the semantic index. The mesh
     // carries every attribute the engine knows while a program reads only some of them, so the layout
     // is intersected with what the program declares (as on Vulkan, where it silenced validation).
-    const auto consumesLocation = [program](std::uint32_t location) {
+    const auto inputCovering = [program](std::uint32_t location) -> const ShaderReflection::VertexInput* {
         const auto& inputs = program->getReflection().m_vertexInputs;
-        if(inputs.empty()) return true;
-        return std::any_of(inputs.begin(), inputs.end(),
-                           [location](const auto& input) { return input.m_location == location; });
+        for(const auto& input : inputs)
+        {
+            // one input can span several locations (a mat4 covers four)
+            if(location >= input.m_location && location < input.m_location + input.m_locationsCount) return &input;
+        }
+        return nullptr;
     };
+    const bool hasReflectedInputs = !program->getReflection().m_vertexInputs.empty();
 
     std::vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+    // SemanticName is a borrowed pointer read at CreateGraphicsPipelineState time, so the matrix
+    // semantics have to outlive the loop; reserving keeps the strings from moving
+    std::vector<std::string> semanticNames;
+    semanticNames.reserve(m_desc.m_vertexInput.m_attributes.size());
     for(const auto& attribute : m_desc.m_vertexInput.m_attributes)
     {
-        if(!consumesLocation(attribute.m_location)) continue;
+        const auto* covering = inputCovering(attribute.m_location);
+        // no reflection data at all: keep the layout as the mesh gave it
+        if(hasReflectedInputs && !covering) continue;
 
         bool perInstance = false;
         std::uint32_t stepRate = 0;
@@ -95,9 +106,17 @@ SGCore::DX12Ptr<ID3D12PipelineState> SGCore::DX12PipelineState::build(const DX12
             break;
         }
 
+        // A matrix input is not TEXCOORD<location> per column: spirv-cross gives the whole matrix the
+        // semantic of its first location and numbers the columns, so `in mat4` at location 0 becomes
+        // TEXCOORD0_0..TEXCOORD0_3 — D3D reads that as name "TEXCOORD0_" with indices 0..3. Naming the
+        // columns TEXCOORD0..3 the ordinary way made CreateGraphicsPipelineState refuse the instancing
+        // pipeline outright (E_INVALIDARG, "input signature expects TEXCOORD0_/0").
+        const bool isMatrixColumn = covering && covering->m_locationsCount > 1;
+        semanticNames.push_back(isMatrixColumn ? "TEXCOORD" + std::to_string(covering->m_location) + "_" : "TEXCOORD");
+
         D3D12_INPUT_ELEMENT_DESC element { };
-        element.SemanticName = "TEXCOORD";
-        element.SemanticIndex = attribute.m_location;
+        element.SemanticName = semanticNames.back().c_str();
+        element.SemanticIndex = isMatrixColumn ? attribute.m_location - covering->m_location : attribute.m_location;
         element.Format = DX12TypesCaster::vertexAttributeFormat(attribute.m_dataType, attribute.m_componentsCount, attribute.m_normalized);
         element.InputSlot = attribute.m_bufferSlot;
         element.AlignedByteOffset = attribute.m_offset;

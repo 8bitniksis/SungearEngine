@@ -359,6 +359,16 @@ bool SGCore::SPIRVCompiler::reflect(const std::vector<StageResult>& stages, Shad
                 vertexInput.m_name = input->name ? input->name : "";
                 vertexInput.m_location = input->location;
                 vertexInput.m_format = static_cast<std::uint32_t>(input->format);
+                // A matrix input takes one location per column, and the reflector reports only the
+                // first of them. A pipeline that took the report literally dropped columns 1..3 of
+                // the per-instance model matrix: Vulkan rasterized garbage transforms, DX12 refused
+                // to create the pipeline at all (TEXCOORD1..3 in the signature, not in the layout).
+                if(input->type_description &&
+                   (input->type_description->type_flags & SPV_REFLECT_TYPE_FLAG_MATRIX) &&
+                   input->numeric.matrix.column_count > 0)
+                {
+                    vertexInput.m_locationsCount = input->numeric.matrix.column_count;
+                }
                 outReflection.m_vertexInputs.push_back(std::move(vertexInput));
             }
         }

@@ -72,6 +72,9 @@ namespace SGCore
             std::uint32_t m_location { };
             /// SPIR-V/Vulkan format enum value (VkFormat) as reported by the reflector.
             std::uint32_t m_format { };
+            /// How many consecutive locations the input occupies. A matrix input is a single
+            /// variable at location N but takes one location per column: `in mat4` covers N..N+3.
+            std::uint32_t m_locationsCount = 1;
         };
 
         struct PushConstantRange

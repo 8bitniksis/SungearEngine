@@ -106,8 +106,10 @@ VkPipeline SGCore::VulkanPipelineState::build(const VulkanPassFormats& formats) 
     const auto consumesLocation = [program](std::uint32_t location) {
         const auto& inputs = program->getReflection().m_vertexInputs;
         if(inputs.empty()) return true; // no reflection data: keep the layout as the mesh gave it
-        return std::any_of(inputs.begin(), inputs.end(),
-                           [location](const auto& input) { return input.m_location == location; });
+        return std::any_of(inputs.begin(), inputs.end(), [location](const auto& input) {
+            // one input can span several locations (a mat4 covers four)
+            return location >= input.m_location && location < input.m_location + input.m_locationsCount;
+        });
     };
 
     std::vector<VkVertexInputAttributeDescription> attributes;
